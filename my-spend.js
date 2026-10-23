@@ -1,0 +1,1 @@
+window.MY_SPEND={"scale": 1, "visits": 0, "flights_per_visit": 300, "hotel_nights": 1, "hotel_rate": 150, "uber_per_visit": 60, "aa_share": 0.5, "chain_share": 0.25, "bases": {"b12": {"dining": 3600, "groceries": 4200, "gas": 1800, "amazon": 1200, "other": 14000}}};

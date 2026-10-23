@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Card Value</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#f5f3ee; --surface:#ffffff; --surface2:#faf8f3; --ink:#1c1b18; --muted:#6b675e; --line:#e4e0d6;
+  --accent:#0d6e50; --accent-ink:#ffffff; --accent-soft:#e3f1ec;
+  --c-everyday:#2f6fdd; --c-trips:#12a58a; --c-credits:#e0a21b; --c-bonus:#8a5cd6; --bad:#c2432f;
+  --shadow:0 1px 2px rgba(30,25,10,.06),0 6px 20px rgba(30,25,10,.05);
+  --r:16px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#131210; --surface:#1d1b18; --surface2:#171614; --ink:#f1eee6; --muted:#a29d90; --line:#2e2b26;
+    --accent:#3fc59a; --accent-ink:#0b1b15; --accent-soft:#17302a;
+    --c-everyday:#6c9cf0; --c-trips:#3fcdb0; --c-credits:#f0bb4a; --c-bonus:#b08ae8; --bad:#ef7a65;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131210; --surface:#1d1b18; --surface2:#171614; --ink:#f1eee6; --muted:#a29d90; --line:#2e2b26;
+  --accent:#3fc59a; --accent-ink:#0b1b15; --accent-soft:#17302a;
+  --c-everyday:#6c9cf0; --c-trips:#3fcdb0; --c-credits:#f0bb4a; --c-bonus:#b08ae8; --bad:#ef7a65;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1760px;margin:0 auto;padding:20px 24px 120px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:clamp(26px,4vw,38px);line-height:1.05;margin:0;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:60ch}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;cursor:pointer;min-height:40px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.layout{display:block}
+/* value panel */
+.panel{background:var(--surface);border-left:1px solid var(--line);box-shadow:-12px 0 40px rgba(0,0,0,.18);position:fixed;top:0;right:0;bottom:0;width:min(410px,94vw);overflow:auto;transform:translateX(106%);transition:transform .22s ease;z-index:8}
+body.panel-open .panel{transform:none}
+.panelhead{display:flex;justify-content:space-between;align-items:center;padding:14px 18px 0}
+@media (prefers-reduced-motion:reduce){.panel{transition:none}}
+.panel h2{font-size:15px;margin:0;padding:16px 18px 4px;letter-spacing:.01em}
+.panel .hint{margin:0;padding:0 18px 12px;color:var(--muted);font-size:13px}
+details.sec{border-top:1px solid var(--line)}
+details.sec>summary{list-style:none;cursor:pointer;padding:14px 18px;font-weight:600;display:flex;justify-content:space-between;align-items:center;min-height:48px}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:"+";color:var(--muted);font-weight:400;font-size:20px}
+details.sec[open]>summary::after{content:"–"}
+.sec .body{padding:0 18px 16px;display:grid;gap:14px}
+.row label.t{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.row .d{color:var(--muted);font-size:12.5px;margin:2px 0 0}
+.row output{font-weight:600;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:2px 0 0}
+.field{display:grid;gap:4px;font-size:14px}
+.field input[type=number]{width:100%;border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:9px 10px;min-height:40px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{border:0;background:var(--surface2);padding:10px 4px;cursor:pointer;font-size:13px;min-height:44px}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.check input{margin-top:3px;width:18px;height:18px;accent-color:var(--accent)}
+/* main */
+.stacks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+@media (max-width:720px){.stacks{grid-template-columns:1fr}}
+.stack{background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:var(--r);padding:14px 16px}
+.stack .k{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.stack .v{font-size:28px;font-weight:700;letter-spacing:-.02em;color:var(--accent)}
+.stack ul{margin:8px 0 0;padding:0;list-style:none;font-size:13.5px;display:grid;gap:3px}
+.stack li b{font-weight:600}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer;min-height:38px}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar select{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 12px;min-height:38px}
+.count{color:var(--muted);font-size:13px;margin-left:auto}
+.list{display:grid;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px}
+.card.pinned{outline:2px solid var(--accent)}
+.head{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center}
+.rank{width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px}
+.name{font-weight:650;font-size:17px;line-height:1.2}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+.tag{font-size:11.5px;border-radius:999px;padding:2px 8px;background:var(--surface2);border:1px solid var(--line);color:var(--muted)}
+.tag.good{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.tag.warn{color:var(--bad)}
+.big{text-align:right}
+.big .n{font-size:28px;font-weight:750;letter-spacing:-.02em;line-height:1}
+.big .n.neg{color:var(--bad)}
+.big .u{font-size:12px;color:var(--muted)}
+.meter{display:flex;height:9px;border-radius:99px;overflow:hidden;background:var(--surface2);margin:14px 0 8px}
+.meter i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:var(--c)}
+.why{margin:8px 0 0;color:var(--muted);font-size:14px}
+.acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.acts .btn{padding:6px 12px;min-height:38px;font-size:14px}
+.detail{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media (max-width:720px){.detail{grid-template-columns:1fr}}
+.detail h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.kv{display:grid;gap:6px;font-size:14px}
+.kv div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding-bottom:5px}
+.kv span:last-child{font-weight:600;text-align:right}
+.perk{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:4px 0}
+.perk input{margin-top:3px;width:18px;height:18px;accent-color:var(--accent)}
+.perk small{display:block;color:var(--muted)}
+.extra{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px}
+.extra input{width:90px;border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:8px;min-height:38px}
+.notes{font-size:13.5px;color:var(--muted)}
+/* compare tray */
+.tray{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -8px 30px rgba(0,0,0,.12);padding:10px 16px;z-index:5}
+.tray .in{max-width:1240px;margin:0 auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tray .pill{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:6px 12px;font-size:14px}
+.cmp{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10;display:grid;place-items:center;padding:12px}
+.cmp .box{background:var(--bg);border-radius:20px;max-width:1100px;width:100%;max-height:92vh;overflow:auto;padding:20px}
+.cmpgrid{display:grid;gap:12px;grid-template-columns:repeat(var(--n),minmax(210px,1fr));overflow-x:auto}
+.cmpcol{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.cmpcol h3{margin:0 0 4px;font-size:17px}
+.foot{margin-top:28px;color:var(--muted);font-size:13px;max-width:80ch}
+.foot a{color:var(--muted)}
+.cmp[hidden],.tray[hidden]{display:none}
+.seg2{display:inline-grid;grid-auto-flow:column;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg2 button{border:0;background:var(--surface);padding:8px 16px;cursor:pointer;min-height:40px}
+.seg2 button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:auto;max-height:calc(100vh - 120px)}
+table.sheet{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+.sheet th,.sheet td{padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right;background:var(--surface)}
+.sheet tbody tr:nth-child(even) td{background:var(--surface2)}
+.sheet tbody tr:hover td{background:var(--accent-soft)}
+.sheet th:first-child,.sheet td:first-child{position:sticky;left:0;text-align:left;z-index:1;min-width:210px;border-right:1px solid var(--line)}
+.sheet thead th{position:sticky;z-index:3;background:var(--surface2);font-weight:600;cursor:pointer;user-select:none}
+.sheet thead tr.grp th{top:0;cursor:default;text-align:center;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.sheet thead tr.cols th{top:34px;font-size:12.5px;white-space:normal;vertical-align:bottom;line-height:1.2;min-width:70px}
+.sheet thead tr.cols th:first-child{z-index:4}
+.sheet thead tr.grp th:first-child{z-index:4}
+.g-gives{background:color-mix(in srgb,var(--c-everyday) 14%,var(--surface)) !important}
+.g-worth{background:color-mix(in srgb,var(--accent) 16%,var(--surface)) !important}
+.g-facts{background:var(--surface2)}
+.sheet td.net{font-weight:750;color:var(--accent);font-size:14.5px}
+.sheet td.neg{color:var(--bad)}
+.sheet td.sep,.sheet th.sep{border-left:2px solid var(--line)}
+.sheet td.name button{all:unset;cursor:pointer;font-weight:600}
+.sheet td.name button:hover{text-decoration:underline}
+.sheet td.name small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+.sheet .yes{color:var(--accent);font-weight:600}
+.sheet .no{color:var(--muted)}
+.sheet .warn{color:var(--bad)}
+.arrow{opacity:.6;margin-left:3px;font-size:10px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px}
+@media (max-width:720px){.controls{grid-template-columns:1fr}}
+.ctl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 16px}
+.ctl label{display:flex;justify-content:space-between;gap:10px;font-weight:600;font-size:14.5px;flex-wrap:wrap}
+.ctl output{color:var(--accent);font-weight:650}
+.ctl p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.ctl .quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.ctl .quick .chip{padding:4px 10px;min-height:32px;font-size:13px}
+.audit li{margin:0 0 8px;font-size:13.5px}
+.cform{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cform .wide{grid-column:1/-1}
+.clist{display:grid;gap:6px;font-size:13.5px}
+.clist div{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.audit .ok{color:var(--accent)} .audit .warn{color:var(--c-credits)} .audit .fixed{color:var(--c-bonus)}
+.audit ul{margin:0;padding-left:0;list-style:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Card Value</h1>
+      <p class="sub" id="subline">Set what points, credits and perks are worth to you. Every card re-ranks instantly. Runs on your computer only; your numbers never leave this page.</p>
+    </div>
+    <div class="tools">
+      <button class="btn primary" id="panelbtn">What things are worth to me</button>
+      <div class="seg2" role="group" aria-label="View"><button data-view="table" aria-pressed="false">Table</button><button data-view="cards" aria-pressed="false">Cards</button></div>
+      <button class="btn" id="csv">Download CSV</button>
+      <button class="btn" id="reset">Reset my values</button>
+      <button class="btn" id="theme">Light / dark</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="What things are worth to you">
+      <div class="panelhead"><h2 style="padding:0">What it's worth to you</h2><button class="btn" id="panelx">Close</button></div>
+      <p class="hint">Drag any slider. Defaults are cautious.</p>
+      <div id="panel"></div>
+    </aside>
+
+    <main>
+      <section class="stacks" id="stacks" aria-label="Best card combinations"></section>
+      <section class="controls" id="controls"></section>
+      <div class="bar" id="filters"></div>
+      <div class="list" id="list"></div>
+      <p class="foot" id="foot"></p>
+    </main>
+  </div>
+</div>
+
+<div class="tray" id="tray" hidden><div class="in" id="trayin"></div></div>
+<div class="cmp" id="cmp" hidden></div>
+
+<script src="data.js"></script>
+<script src="my-spend.js"></script>
+<script>
+"use strict";
+const D = window.CARD_DATA || {cards:[]};
+const SHARE = !!window.SHARE_MODE;
+const M = window.MY_SPEND || {};
+const CATS = ["dining","groceries","gas","other","amazon","flights","hotels","rideshare"];
+const CAT_LABEL = {dining:"Dining",groceries:"Groceries",gas:"Gas",other:"Everything else",amazon:"Amazon",flights:"Flights",hotels:"Hotels",rideshare:"Uber & rides"};
+const TRIP_CATS = new Set(["flights","hotels","rideshare"]);
+
+const CUR = {
+  delta:["Delta SkyMiles","Delta flights only"],
+  united:["United MileagePlus miles","United flights only"],
+  amex:["Amex Membership Rewards","Move to airline and hotel partners"],
+  chase:["Chase Ultimate Rewards","Move to partners, or use in Chase Travel"],
+  citi:["Citi ThankYou points","Move to partners"],
+  bilt:["Bilt points","Bilt quotes 2.2¢, which is optimistic"],
+  aa:["AAdvantage miles","American Airlines only"],
+  marriott:["Marriott Bonvoy points","Marriott stays only"],
+  hilton:["Hilton Honors points","Hilton stays only"],
+  hyatt:["World of Hyatt points","Hyatt stays; the best hotel points"],
+  ihg:["IHG One points","IHG stays only"],
+  cash:["Cash back / bank points","Statement credit or deposit"]
+};
+const PERKTYPE = {
+  ride:["Uber and rideshare credits","Counts when you would ride anyway"],
+  hotel:["Hotel credits from the card's travel site","Any stay booked there"],
+  hotel_big:["Hotel credits needing a prepaid or $500+ stay","Hard to use for one-night visits"],
+  travel:["General travel credit","Applies automatically to flights and hotels"],
+  airline:["Airline fee credits (bags, seats)","Needs you to spend on those fees"],
+  dining:["Credits at set restaurants","Only if you would eat there"],
+  shopping:["Brand and shopping credits",""],
+  streaming:["Streaming credits",""],
+  entertainment:["Tickets and events",""],
+  security:["CLEAR, Global Entry, TSA PreCheck",""],
+  lounge:["Airport lounge access","Worth more the more you fly"],
+  freenight:["Free hotel night awards","Estimates; only if you stay there"],
+  flex:["Flexible cash (Bilt Cash)",""],
+  lifestyle:["Lifestyle credits (delivery, fitness)",""],
+  ride_other:["Lyft and chauffeur credits (not Uber)",""],
+  custom:["Credits on cards you added",""],
+  other:["Other credits",""]
+};
+const DEF = () => ({
+  basis:"b12",
+  spend:Object.assign({dining:4300,groceries:1000,gas:2100,amazon:500,other:16200},(M.bases&&M.bases.b12)||{},{parents:0,paypal:M.paypal??0}),
+  view:"table", tsort:{k:"net",dir:-1}, scale:(M.scale??1), feeMax:1000, custom:[],
+  trips:{visits:M.visits??52,flights_per_visit:M.flights_per_visit??138.46,hotel_nights:M.hotel_nights??1,hotel_rate:M.hotel_rate??150,uber_per_visit:M.uber_per_visit??80,aa_share:M.aa_share??0.5},
+  portal:false, chain_share:M.chain_share??0.25, has_prime:false, pair_freedom:false, mode:"steady",
+  pv:{delta:1.1,united:1.2,amex:2.0,chase:2.05,citi:1.9,bilt:2.2,aa:1.4,marriott:.7,hilton:.5,hyatt:1.7,ihg:.5,cash:1.0},
+  use:{custom:100,ride:100,hotel:100,travel:100,airline:50,dining:0,shopping:0,streaming:0,entertainment:0,security:0,lounge:0,freenight:0,flex:50,lifestyle:25,hotel_big:0,ride_other:0,other:0},
+  other:{metal:0,abroad:1500,carry:0,parked:0,base_apy:0},
+  off:{}, extra:{}, pins:[],
+  f:{approved:false,get:false,nolock:false,norestrict:false,nofee:false,cash:false,metal:false,nofx:false,excl:false}, sort:"net"
+});
+let S = DEF();
+try{ const raw = localStorage.getItem("cardvalue.v1"); if(raw){ const o = JSON.parse(raw); S = merge(DEF(), o); } }catch(e){}
+function merge(a,b){ for(const k in b){ if(b[k] && typeof b[k]==="object" && !Array.isArray(b[k]) && a[k] && typeof a[k]==="object") merge(a[k],b[k]); else a[k]=b[k]; } return a; }
+function save(){ try{ localStorage.setItem("cardvalue.v1", JSON.stringify(S)); }catch(e){} }
+
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $ = id => document.getElementById(id);
+const usd = n => (n<0?"-$":"$")+Math.abs(Math.round(n)).toLocaleString();
+
+/* ---------- the math ---------- */
+function calc(c){
+  const t=S.trips, sp0=S.spend, k0=S.scale;
+  const sp={dining:sp0.dining*k0,groceries:sp0.groceries*k0,gas:sp0.gas*k0,amazon:sp0.amazon*k0,other:sp0.other*k0,parents:(sp0.parents||0)*k0,paypal:(sp0.paypal||0)*k0};
+  const flights=t.flights_per_visit*t.visits, aaF=flights*t.aa_share, otF=flights-aaF;
+  const hotels=t.visits*t.hotel_nights*t.hotel_rate, ride=t.visits*t.uber_per_visit;
+  const noPrime = c.needs==="prime" && !S.has_prime;
+  const e = noPrime ? Object.assign({},c.earn,c.no_prime) : c.earn;
+  const portal = S.portal;
+  const cur = (S.pair_freedom && c.freedom) ? "chase" : c.currency;
+  const v = c.own_cpp!=null ? c.own_cpp/100 : (S.pv[cur] ?? 1)/100;
+  const pts = {};
+  pts.dining = sp.dining*e.dining;
+  pts.groceries = sp.groceries*e.groceries;
+  pts.gas = sp.gas*e.gas;
+  pts.amazon = sp.amazon*(e.amazon ?? e.other);
+  const otherTotal = sp.other+(sp.parents||0);
+  if(c.paypal3){ const pp=Math.min(sp.paypal||0,otherTotal); pts.other=(otherTotal-pp)*e.other+pp*3; }
+  else pts.other = otherTotal*e.other;
+  pts.flights = (portal && e.flights_portal!=null) ? flights*e.flights_portal : aaF*e.aa + otF*e.other_airline + flights*(e.flights-e.other_airline);
+  const hp = (portal && e.hotels_portal!=null) ? e.hotels_portal : e.hotels;
+  pts.hotels = c.chain ? hotels*(S.chain_share*hp + (1-S.chain_share)*c.hotels_off) : hotels*hp;
+  pts.rideshare = ride*e.rideshare;
+  const rew = {}; let everyday=0, trips=0;
+  for(const k of CATS){ rew[k]=pts[k]*v; (TRIP_CATS.has(k)?trips+=rew[k]:everyday+=rew[k]); }
+  let credits=0; const perkVals=[];
+  for(const p of c.perks_list){
+    const key=c.name+"|"+p.label;
+    const on = !S.off[key];
+    const val = on ? p.amount*((S.use[p.type]??0)/100) : 0;
+    credits+=val; perkVals.push({p,key,on,val});
+  }
+  const extra = +S.extra[c.name]||0;
+  const bf = S.mode==="year1" ? 1 : S.mode==="avg3" ? 1/3 : 0;
+  const monthly = (sp.dining+sp.groceries+sp.gas+sp.amazon+sp.other+sp.parents+flights+hotels+ride)/12;
+  let bonusBlocked = null;
+  if(c.bonus_req && monthly*(c.bonus_days/30.4) < c.bonus_req) bonusBlocked={need:c.bonus_req,days:c.bonus_days,reach:monthly*c.bonus_days/30.4};
+  const bonus = bonusBlocked ? 0 : ((c.bonus_pts||0)*v + (c.bonus_cash||0))*bf;
+  const fee = (S.mode==="year1" && c.fee_y1!=null) ? c.fee_y1 : (S.mode==="avg3" && c.fee_y1!=null ? (c.fee_y1*1+c.fee*2)/3 : c.fee);
+  const O=S.other;
+  const metalV = c.metal ? (+O.metal||0) : 0;
+  const fxCost = (c.ftf!=null && c.ftf>0) ? (+O.abroad||0)*c.ftf/100 : 0;
+  const aprMid = c.apr ? (c.apr[0]+c.apr[1])/2 : null;
+  const interest = (aprMid!=null) ? (+O.carry||0)*aprMid/100 : 0;
+  const apyGain = (c.apy!=null) ? (+O.parked||0)*Math.max(0,c.apy-(+O.base_apy||0))/100 : 0;
+  const other = metalV - fxCost - interest + apyGain;
+  const net = everyday+trips+credits+extra+bonus+other-fee;
+  const ptsTotal = CATS.reduce((s,k)=>s+pts[k],0);
+  const creditFace = c.perks_list.reduce((s,p)=>s+p.amount,0);
+  const bonusFull = (c.bonus_pts||0)*v+(c.bonus_cash||0);
+  const bonusGives = [(c.bonus_pts?c.bonus_pts.toLocaleString()+" pts":""),(c.bonus_cash?usd(c.bonus_cash):"")].filter(Boolean).join(" + ");
+  return {c,rew,pts,ptsTotal,everyday,trips,credits:credits+extra,creditWorth:credits,creditFace,bonus,bonusFull,bonusGives,fee,net,perkVals,v,cur,noPrime,extra,other,metalV,fxCost,interest,apyGain,bonusBlocked,monthly};
+}
+
+function allCards(){ return D.cards.concat(S.custom||[]); }
+/* ---------- filters ---------- */
+function isLocked(c){ return c.lock==="airline" || c.chain; }
+function isRestricted(c){ return c.status==="membership needed" || c.status==="students only" || c.status==="waitlist"; }
+function visible(c){
+  const f=S.f;
+  if(c.excluded && !f.excl) return false;
+  if(S.feeMax<1000 && c.fee>S.feeMax) return false;
+  if(f.get && !(c.avail && (c.avail.tier==='yours'||c.avail.tier==='open'||c.avail.tier==='check')) && c.status!=='custom') return false;
+  if(f.approved && c.status!=="approved" && c.status!=="has") return false;
+  if(f.nolock && isLocked(c)) return false;
+  if(f.norestrict && isRestricted(c)) return false;
+  if(f.nofee && c.fee>0) return false;
+  if(f.cash && c.currency!=="cash") return false;
+  if(f.metal && !c.metal) return false;
+  if(f.nofx && c.ftf!==0) return false;
+  return true;
+}
+
+/* ---------- best stacks ---------- */
+function bestStacks(rows){
+  const pool = rows.filter(r=>!isRestricted(r.c)).slice(0,16);
+  const out={};
+  for(const k of [1,2,3]){
+    let best=null;
+    (function rec(start,pick){
+      if(pick.length===k){
+        const asg={}; let tot=0;
+        for(const cat of CATS){ let m=pick[0]; for(const r of pick) if(r.rew[cat]>m.rew[cat]) m=r; asg[cat]=m; tot+=m.rew[cat]; }
+        const fees=pick.reduce((s,r)=>s+r.c.fee,0);
+        if(S.feeMax<1000 && fees>S.feeMax) return;
+        for(const r of pick) tot += r.credits + r.bonus - r.fee;
+        if(!best||tot>best.tot) best={tot,pick:[...pick],asg};
+        return;
+      }
+      for(let i=start;i<pool.length;i++){ pick.push(pool[i]); rec(i+1,pick); pick.pop(); }
+    })(0,[]);
+    out[k]=best;
+  }
+  return out;
+}
+
+/* ---------- table view ---------- */
+const COLS=[
+ {k:"name",l:"Card",g:""},
+ {k:"ptsTotal",l:"Points or miles it earns / yr",g:"gives",v:r=>r.ptsTotal,f:r=>Math.round(r.ptsTotal).toLocaleString(),sep:1},
+ {k:"creditFace",l:"Credits it offers / yr",g:"gives",v:r=>r.creditFace,f:r=>r.creditFace?usd(r.creditFace):"-"},
+ {k:"bonusFace",l:"Sign-up bonus it offers",g:"gives",v:r=>(r.c.bonus_pts||0)*r.v+(r.c.bonus_cash||0),f:r=>r.bonusGives||"-"},
+ {k:"cpp",l:"1 point is worth",g:"worth",v:r=>r.v,f:r=>(r.v*100).toFixed(2)+"¢",sep:1},
+ {k:"rewards",l:"Rewards, in dollars",g:"worth",v:r=>r.everyday+r.trips,f:r=>usd(r.everyday+r.trips)},
+ {k:"creditWorth",l:"Credits you'd use",g:"worth",v:r=>r.credits,f:r=>usd(r.credits)},
+ {k:"bonus",l:"Bonus counted",g:"worth",v:r=>r.bonus,f:r=>usd(r.bonus)},
+ {k:"other",l:"Other factors",g:"worth",v:r=>r.other,f:r=>usd(r.other)},
+ {k:"fee",l:"Annual fee",g:"worth",v:r=>-r.fee,f:r=>r.fee?"−"+usd(r.fee).replace("-",""):"$0"},
+ {k:"net",l:"Worth to you / yr",g:"worth",v:r=>r.net,f:r=>usd(r.net),cls:"net"},
+ {k:"metal",l:"Metal card",g:"facts",v:r=>r.c.metal?1:0,f:r=>r.c.metal?'<span class="yes">Yes</span>':'<span class="no">-</span>',sep:1},
+ {k:"ftf",l:"Foreign fee",g:"facts",v:r=>r.c.ftf==null?99:r.c.ftf,f:r=>r.c.ftf==null?'<span class="no">?</span>':(r.c.ftf===0?'<span class="yes">None</span>':'<span class="warn">'+r.c.ftf+'%</span>')},
+ {k:"apr",l:"APR",g:"facts",v:r=>r.c.apr?r.c.apr[0]:999,f:r=>r.c.apr?r.c.apr[0]+"–"+r.c.apr[1]+"%":'<span class="no">?</span>'},
+ {k:"apy",l:"Card APY",g:"facts",v:r=>r.c.apy??0,f:r=>r.c.apy!=null?r.c.apy+"%":'<span class="no">-</span>'},
+ {k:"avail",l:"Can I get it?",g:"facts",v:r=>({yours:0,open:1,check:2,blocked:3})[r.c.avail&&r.c.avail.tier]??1,f:r=>{const a=r.c.avail||{tier:"open",note:""};const lab={yours:"Yours / approved",open:"Open to apply",check:"Check odds first",blocked:"Blocked"}[a.tier]||"Open";const cl={yours:"yes",open:"",check:"warn",blocked:"warn"}[a.tier];return `<span class="${cl}" title="${esc(a.note)}">${lab}</span>`;}},
+ {k:"url",l:"Apply",g:"facts",v:r=>0,f:r=>`<a href="${esc(r.c.url||("https://www.google.com/search?q="+encodeURIComponent(r.c.name+" credit card apply")))}" target="_blank" rel="noopener">${r.c.url?"Issuer page":"Search"}</a>`},
+ {k:"lock",l:"Lock / status",g:"facts",v:r=>0,f:r=>{const t=[];if(r.c.status==="custom")t.push("Added by you");if(r.bonusBlocked)t.push("Bonus out of reach");if(r.c.lock==="airline")t.push("Airline");if(r.c.chain)t.push("Hotel chain");if(r.c.status==="approved")t.push("Approved");if(r.c.status==="has")t.push("You have it");if(r.c.status==="waitlist")t.push("Waitlist");if(r.c.status==="membership needed")t.push("Membership");if(r.c.status==="students only")t.push("Students");if(r.c.checked!=="issuer")t.push("Unchecked");return t.join(", ")||'<span class="no">-</span>';}}
+];
+function tableHTML(rows){
+  const ts=S.tsort, col=COLS.find(c=>c.k===ts.k)||COLS.find(c=>c.k==="net");
+  const val=r=>col.k==="name"?r.c.name.toLowerCase():col.v(r);
+  rows=[...rows].sort((a,b)=>{const x=val(a),y=val(b);return (x<y?-1:x>y?1:0)*ts.dir;});
+  const grp=(g,l,n)=>`<th class="g-${g}" colspan="${n}">${l}</th>`;
+  const head=`<thead><tr class="grp"><th></th>${grp("gives","What it gives",3)}${grp("worth","What it's worth to you",7)}${grp("facts","Facts",7)}</tr>
+  <tr class="cols">${COLS.map(c=>`<th data-sort="${c.k}" class="${c.sep?"sep":""} ${c.g?"g-"+c.g:""}">${c.l}${ts.k===c.k?`<span class="arrow">${ts.dir<0?"▼":"▲"}</span>`:""}</th>`).join("")}</tr></thead>`;
+  const body=rows.map(r=>`<tr>${COLS.map(c=>{
+    if(c.k==="name") return `<td class="name"><button data-open="${esc(r.c.name)}">${esc(r.c.name)}</button><small>${r.c.fee?usd(r.c.fee)+" fee":"No fee"}${r.c.fee_note?" · "+esc(r.c.fee_note):""}</small></td>`;
+    const neg=c.k==="net"&&r.net<0;
+    return `<td class="${c.cls||""} ${neg?"neg":""} ${c.sep?"sep":""}">${c.f(r)}</td>`;}).join("")}</tr>`).join("");
+  return `<div class="tablewrap"><table class="sheet">${head}<tbody>${body}</tbody></table></div>`;
+}
+function csvDownload(){
+  const rows=allCards().map(calc).filter(r=>visible(r.c));
+  const cols=COLS.filter(c=>c.k!=="name"&&c.k!=="lock");
+  const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+  const strip=s=>String(s).replace(/<[^>]*>/g,"");
+  const lines=[["Card",...cols.map(c=>c.l)].map(q).join(",")];
+  for(const r of rows.sort((a,b)=>b.net-a.net)) lines.push([r.c.name,...cols.map(c=>strip(c.f(r)))].map(q).join(","));
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"})); a.download="card-value.csv"; a.click();
+}
+
+/* ---------- rendering ---------- */
+let OPEN = new Set();
+function render(){
+  const all = allCards().map(calc);
+  const rows = all.filter(r=>visible(r.c));
+  const sorters = {net:(a,b)=>b.net-a.net, rewards:(a,b)=>(b.everyday+b.trips)-(a.everyday+a.trips), fee:(a,b)=>a.fee-b.fee||b.net-a.net, trips:(a,b)=>b.trips-a.trips};
+  rows.sort(sorters[S.sort]||sorters.net);
+  renderStacks([...rows].sort(sorters.net));
+  renderFilters(rows.length, all.length);
+  const maxGross = Math.max(1,...rows.map(r=>r.everyday+r.trips+Math.max(0,r.credits)+r.bonus));
+  document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.view===S.view)));
+  $("sort").style.display = S.view==="table" ? "none" : "";
+  $("list").innerHTML = !rows.length ? '<div class="card">No cards match these filters.</div>' : (S.view==="table" ? tableHTML(rows) : rows.map((r,i)=>cardHTML(r,i+1,maxGross)).join(""));
+  $("foot").innerHTML = footHTML();
+  renderTray();
+}
+function renderStacks(sorted){
+  const st = bestStacks(sorted);
+  const names=["One card","Two cards","Three cards"];
+  $("stacks").innerHTML = [1,2,3].map(k=>{
+    const b=st[k]; if(!b) return "";
+    const lines = b.pick.map(r=>{
+      const cats = CATS.filter(c=>b.asg[c]===r && (r.rew[c]>0)).map(c=>CAT_LABEL[c].toLowerCase());
+      return `<li><b>${esc(shortName(r.c.name))}</b>${cats.length?`: ${esc(cats.join(", "))}`:""}</li>`;
+    }).join("");
+    return `<div class="stack"><div class="k">Best ${names[k-1].toLowerCase()}</div><div class="v num">${usd(b.tot)}<span style="font-size:14px;font-weight:500;color:var(--muted)"> /yr</span></div><ul>${lines}</ul></div>`;
+  }).join("");
+}
+function shortName(n){ return n.replace(" (you have it)","").replace("Capital One ","CapOne ").replace("Bank of America ","BofA ").replace("Navy Federal ","NFCU ").replace(" Visa Signature",""); }
+function renderFilters(n,total){
+  const chips=[...(SHARE?[]:[["approved","Approved / yours"]]),["get","I can get it"],["nolock","No airline or hotel lock"],["norestrict","Open to me today"],["nofee","No annual fee"],["cash","Cash back only"],["metal","Metal card"],["nofx","No foreign fee"],["excl","Show Capital One + Wells Fargo"]];
+  $("filters").innerHTML = chips.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.f[k]}">${l}</button>`).join("")
+   + `<select id="sort" aria-label="Sort"><option value="net">Sort: worth to me</option><option value="rewards">Sort: everyday + trip rewards</option><option value="trips">Sort: best on trips</option><option value="fee">Sort: lowest fee</option></select>`
+   + `<span class="count">Showing ${n} of ${total}</span>`;
+  $("sort").value=S.sort;
+}
+function tagsHTML(c){
+  const t=[];
+  if(c.status==="approved") t.push('<span class="tag good">Approved for you</span>');
+  if(c.status==="has") t.push('<span class="tag good">You have it</span>');
+  if(c.status==="waitlist") t.push('<span class="tag warn">Waitlist</span>');
+  if(c.status==="membership needed") t.push('<span class="tag warn">Membership needed</span>');
+  if(c.status==="students only") t.push('<span class="tag warn">Students only</span>');
+  if(c.lock==="airline") t.push('<span class="tag warn">Airline-locked</span>');
+  if(c.chain) t.push('<span class="tag warn">One hotel chain</span>');
+  if(c.fee===0) t.push('<span class="tag">No fee</span>'); else t.push(`<span class="tag">${usd(c.fee)} fee${c.fee_note?` · ${esc(c.fee_note)}`:""}</span>`);
+  if(c.metal) t.push('<span class="tag good" title="Physical metal card">Metal card</span>');
+  if(c.ftf===0) t.push('<span class="tag good" title="'+(c.ftf_src==="page"?"Read on the issuer page":"From memory, not checked")+'">No foreign fee</span>');
+  else if(c.ftf>0) t.push('<span class="tag warn" title="From memory, not checked">'+c.ftf+'% foreign fee</span>');
+  if(c.apr) t.push('<span class="tag" title="Variable purchase APR">APR '+c.apr[0]+(c.apr[1]!==c.apr[0]?'–'+c.apr[1]:'')+'%</span>');
+  if(c.intro) t.push('<span class="tag">'+esc(c.intro)+'</span>');
+  if(c.apy!=null) t.push('<span class="tag good" title="'+esc(c.apy_note||"")+'">'+c.apy+'% APY</span>');
+  if(c.avail&&c.avail.tier==="check") t.push('<span class="tag warn" title="'+esc(c.avail.note)+'">Check odds first</span>');
+  if(c.avail&&c.avail.tier==="blocked") t.push('<span class="tag warn" title="'+esc(c.avail.note)+'">Blocked</span>');
+  if(c.checked!=="issuer") t.push('<span class="tag" title="Terms were not read on the issuer page">Unchecked terms</span>');
+  return t.join("");
+}
+function whyLine(r){
+  const items = CATS.map(k=>[k,r.rew[k]]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const parts = items.map(([k,val])=>`${CAT_LABEL[k].toLowerCase()} ${usd(val)}`);
+  if(r.credits>=40) parts.push(`credits ${usd(r.credits)}`);
+  return (parts.length? "Most comes from "+parts.join(", ")+"." : "")+(r.bonusBlocked?" Sign-up bonus is out of reach at your spending.":"");
+}
+function cardHTML(r,rank,maxGross){
+  const c=r.c, open=OPEN.has(c.name), pinned=S.pins.includes(c.name);
+  const seg=(val,col)=>val>0?`<i style="width:${(val/maxGross*100).toFixed(2)}%;background:var(${col})"></i>`:"";
+  const meter = seg(r.everyday,"--c-everyday")+seg(r.trips,"--c-trips")+seg(Math.max(0,r.credits),"--c-credits")+seg(r.bonus,"--c-bonus");
+  return `<article class="card ${pinned?"pinned":""}" data-name="${esc(c.name)}">
+    <div class="head">
+      <div class="rank num">${rank}</div>
+      <div><div class="name">${esc(c.name)}</div><div class="tags">${tagsHTML(c)}</div></div>
+      <div class="big"><div class="n num ${r.net<0?"neg":""}">${usd(r.net)}</div><div class="u">worth to you / yr</div></div>
+    </div>
+    <div class="meter" aria-hidden="true">${meter}</div>
+    <div class="legend"><span style="--c:var(--c-everyday)">Everyday ${usd(r.everyday)}</span><span style="--c:var(--c-trips)">Trips ${usd(r.trips)}</span><span style="--c:var(--c-credits)">Credits ${usd(r.credits)}</span>${r.bonus?`<span style="--c:var(--c-bonus)">Bonus ${usd(r.bonus)}</span>`:""}${r.other?`<span style="--c:var(--accent)">Other ${usd(r.other)}</span>`:""}<span style="--c:var(--bad)">Fee −${usd(r.fee).replace("$","$")}</span></div>
+    <p class="why">${esc(whyLine(r))}</p>
+    <div class="acts"><button class="btn" data-act="open">${open?"Hide details":"Show details"}</button><button class="btn ${pinned?"primary":""}" data-act="pin">${pinned?"Pinned":"Compare"}</button></div>
+    ${open?detailHTML(r):""}
+  </article>`;
+}
+function detailHTML(r){
+  const c=r.c;
+  const rates = CATS.map(k=>{
+    let m=c.earn[k]??c.earn.other;
+    if(k==="flights"&&S.portal&&c.earn.flights_portal!=null) m=c.earn.flights_portal;
+    if(k==="hotels"&&S.portal&&c.earn.hotels_portal!=null) m=c.earn.hotels_portal;
+    return `<div><span>${CAT_LABEL[k]}</span><span class="num">${m}x → ${usd(r.rew[k])}</span></div>`;
+  }).join("");
+  const perks = r.perkVals.length ? r.perkVals.map(pv=>`<label class="perk"><input type="checkbox" data-perk="${esc(pv.key)}" ${pv.on?"checked":""}><span>${esc(pv.p.label)} · ${usd(pv.p.amount)}${pv.p.type==="security"&&pv.p.amount===30?"/yr":"/yr"} <b class="num" style="color:var(--accent)">${pv.val?`counts ${usd(pv.val)}`:"counts $0"}</b><small>${esc(PERKTYPE[pv.p.type]?.[0]||"")}${pv.p.note?" · "+esc(pv.p.note):""}</small></span></label>`).join("") : '<div class="notes">No itemized credits.</div>';
+  return `<div class="detail">
+    <div><h4>How the rewards add up</h4><div class="kv">${rates}</div>
+      <div class="notes" style="margin-top:8px">${r.cur==="cash"?"Valued as cash":`1 point = ${S.pv[r.cur]}¢ (${esc(CUR[r.cur][0])})`}. ${c.chain?`Hotel points assume ${Math.round(S.chain_share*100)}% of your nights are at this chain.`:""}</div>
+    </div>
+    <div><h4>Credits and perks</h4>${perks}
+      <div class="extra"><label for="x-${esc(c.name)}">Extra value to me $/yr</label><input id="x-${esc(c.name)}" type="number" step="10" data-extra="${esc(c.name)}" value="${S.extra[c.name]||0}"></div>
+      <div class="notes" style="margin-top:6px">Use this for things the list can't price: free bags, lounges, trip protection.</div>
+    </div>
+    <div class="notes" style="grid-column:1/-1">
+      <b>Can I get it?</b> ${esc((c.avail&&c.avail.note)||"")}${c.url?` <a href="${esc(c.url)}" target="_blank" rel="noopener">Issuer page</a>`:` <a href="https://www.google.com/search?q=${encodeURIComponent(c.name+" credit card apply")}" target="_blank" rel="noopener">Search</a>`}<br>
+      ${r.bonusBlocked?`<b>Bonus:</b> needs ${usd(r.bonusBlocked.need)} in ${r.bonusBlocked.days} days; at your pace you would reach about ${usd(r.bonusBlocked.reach)}, so it counts as $0.<br>`:""}
+      <b>Perks:</b> ${esc(c.perks||"")}<br>
+      ${c.bonus_note?`<b>Sign-up bonus:</b> ${esc(c.bonus_note)}<br>`:""}
+      ${c.cover?`<b>Trip cover:</b> ${esc(c.cover)}<br>`:""}
+      ${c.college?`<b>For college visits:</b> ${esc(c.college)}<br>`:""}
+      <b>Points go to:</b> ${esc(c.points_to||"")}<br>
+      <b>Good to know:</b> ${[
+        c.metal?"physical metal card":"",
+        c.ftf===0?"no foreign transaction fee":(c.ftf>0?c.ftf+"% foreign transaction fee":"foreign fee not checked"),
+        c.apr?"purchase APR "+c.apr[0]+"% to "+c.apr[1]+"%":"APR not checked",
+        c.intro||"",
+        c.apy!=null?c.apy+"% APY: "+(c.apy_note||""):""
+      ].filter(Boolean).map(esc).join(" · ")}
+    </div>
+  </div>`;
+}
+function footHTML(){
+  const nm=(D.not_modeled||[]).length?`Seen on your Amex page but not modeled (no rates, and airline- or hotel-locked): ${esc(D.not_modeled.join("; "))}. `:"";
+  return `${nm}Numbers are estimates from issuer pages (checked October 2026) and your own spending. Sign-up bonuses need their minimum spend. Cards marked Unchecked terms came from secondary sources. This page doesn't apply for anything, uses no affiliate links, and is not financial advice. Check each issuer's page before you apply.`;
+}
+function renderTray(){
+  const tray=$("tray");
+  if(!S.pins.length){ tray.hidden=true; return; }
+  tray.hidden=false;
+  $("trayin").innerHTML = S.pins.map(n=>`<span class="pill">${esc(shortName(n))}</span>`).join("")
+    + `<button class="btn primary" id="cmpgo" ${S.pins.length<2?"disabled":""}>Compare side by side</button><button class="btn" id="cmpclear">Clear</button>`;
+}
+function openCompare(){
+  const rs=S.pins.map(n=>calc(allCards().find(c=>c.name===n))).filter(Boolean);
+  const best=Math.max(...rs.map(r=>r.net));
+  $("cmp").hidden=false;
+  $("cmp").innerHTML = `<div class="box"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="margin:0">Side by side</h2><button class="btn" id="cmpx">Close</button></div>
+  <div class="cmpgrid" style="--n:${rs.length}">${rs.map(r=>`<div class="cmpcol">
+    <h3>${esc(r.c.name)}</h3><div class="tags">${tagsHTML(r.c)}</div>
+    <div class="big" style="text-align:left;margin:12px 0"><div class="n num" style="${r.net===best?"color:var(--accent)":""}">${usd(r.net)}</div><div class="u">worth to you / yr</div></div>
+    <div class="kv">
+      <div><span>Everyday rewards</span><span class="num">${usd(r.everyday)}</span></div>
+      <div><span>Trip rewards</span><span class="num">${usd(r.trips)}</span></div>
+      <div><span>Credits you'd use</span><span class="num">${usd(r.credits)}</span></div>
+      <div><span>Sign-up bonus</span><span class="num">${usd(r.bonus)}</span></div>
+      <div><span>Other factors</span><span class="num">${usd(r.other)}</span></div>
+      <div><span>Annual fee</span><span class="num">−${usd(r.fee).replace("-","")}</span></div>
+      <div><span>Metal card</span><span>${r.c.metal?"Yes":"No"}</span></div>
+      <div><span>Foreign fee</span><span>${r.c.ftf==null?"not checked":r.c.ftf+"%"}</span></div>
+      <div><span>APR</span><span>${r.c.apr?r.c.apr[0]+"–"+r.c.apr[1]+"%":"not checked"}</span></div>
+      <div><span>Card APY</span><span>${r.c.apy!=null?r.c.apy+"%":"none"}</span></div>
+      ${CATS.map(k=>`<div><span>${CAT_LABEL[k]}</span><span class="num">${r.c.earn[k]??r.c.earn.other}x</span></div>`).join("")}
+    </div>
+    <p class="notes">${esc(r.c.perks||"")}</p>
+    ${r.c.cover?`<p class="notes"><b>Trip cover:</b> ${esc(r.c.cover)}</p>`:""}
+  </div>`).join("")}</div></div>`;
+}
+
+/* ---------- value panel ---------- */
+function slider(id,label,desc,min,max,step,val,fmt){
+  return `<div class="row"><label class="t" for="${id}"><span>${esc(label)}</span><output id="${id}-o">${fmt(val)}</output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}">${desc?`<p class="d">${esc(desc)}</p>`:""}</div>`;
+}
+function numField(path,label,step){
+  const [a,b]=path.split("."); const val=S[a][b];
+  return `<label class="field">${esc(label)}<input type="number" step="${step||"any"}" inputmode="decimal" data-path="${path}" value="${val}"></label>`;
+}
+function buildPanel(){
+  const pts = Object.keys(CUR).map(k=>slider("pv-"+k,CUR[k][0],CUR[k][1],k==="hyatt"?0:0,k==="cash"?3:4,0.05,S.pv[k],v=>v.toFixed(2)+"¢")).join("");
+  const perks = Object.keys(PERKTYPE).map(k=>slider("use-"+k,PERKTYPE[k][0],PERKTYPE[k][1],0,100,5,S.use[k],v=>v+"%")).join("");
+  $("panel").innerHTML = `
+  <details class="sec" open><summary>What one point is worth</summary><div class="body">${pts}</div></details>
+  <details class="sec"><summary>How much of each credit you'd use</summary><div class="body"><p class="d" style="margin:0;color:var(--muted);font-size:13px">100% means a $100 credit is worth $100 to you. 0% means you'd never use it.</p>${perks}</div></details>
+  <details class="sec" open><summary>Sign-up bonuses</summary><div class="body">
+    <div class="seg" role="group" aria-label="Bonus mode">
+      <button data-mode="year1" aria-pressed="${S.mode==="year1"}">Year 1</button>
+      <button data-mode="avg3" aria-pressed="${S.mode==="avg3"}">3-yr average</button>
+      <button data-mode="steady" aria-pressed="${S.mode==="steady"}">Ignore</button>
+    </div>
+    <p class="d" style="margin:0;color:var(--muted);font-size:13px">Year 1 also uses first-year fee waivers.</p></div></details>
+  <details class="sec"><summary>Your spending (per year)</summary><div class="body">
+    ${(M.bases&&M.bases.b12p)?`<div class="seg" role="group" aria-label="Spending basis">
+      <button data-basis="b12" aria-pressed="${S.basis==="b12"}">Last 12 months</button>
+      <button data-basis="b12p" aria-pressed="${S.basis==="b12p"}">+ unseen PayPal</button>
+      <button data-basis="b6" aria-pressed="${S.basis==="b6"}">Last 6 mo × 2</button>
+    </div>
+    <p class="d" style="margin:0;color:var(--muted);font-size:13px">Pulled from your statements and exports. Pick the basis, then edit any number.</p>`:`<p class="d" style="margin:0;color:var(--muted);font-size:13px">Example numbers. Replace them with your own yearly spending.</p>`}
+    <div class="grid2">
+    ${numField("spend.dining","Dining")}${numField("spend.groceries","Groceries")}${numField("spend.gas","Gas")}${numField("spend.amazon","Amazon")}${numField("spend.other","Everything else")}${numField("spend.parents","Bought for parents, repaid")}
+    </div>
+    ${numField("spend.paypal","Of that, paid through PayPal checkout")}
+  </div></details>
+  ${(M.audit&&M.audit.length)?`<details class="sec" open><summary>Check my numbers</summary><div class="body audit"><ul>${M.audit.map(a=>`<li><b class="${a.s}">${a.s==="ok"?"Ties out":a.s==="fixed"?"Fixed":"Heads up"}.</b> ${esc(a.t)}</li>`).join("")}</ul></div></details>`:""}
+  <details class="sec"><summary>College visits</summary><div class="body"><div class="grid2">
+    ${numField("trips.visits","Visits a year")}${numField("trips.flights_per_visit","Flights $ per visit")}${numField("trips.hotel_nights","Hotel nights")}${numField("trips.hotel_rate","Hotel $ per night")}${numField("trips.uber_per_visit","Uber $ per visit")}${numField("trips.aa_share","Share of flights on the card's airline (0-1)","0.05")}
+  </div>
+  <label class="check"><input type="checkbox" id="portal" ${S.portal?"checked":""}><span>I'll book flights and hotels in card travel sites<br><small style="color:var(--muted)">Unlocks 5x to 12x rates. Prices there may differ.</small></span></label></div></details>
+  <details class="sec"><summary>Other things that matter</summary><div class="body">
+    <label class="field">A metal card is worth to me, $ a year<input type="number" step="5" data-path="other.metal" value="${S.other.metal}"></label>
+    <label class="field">Spend abroad, $ a year<input type="number" step="100" data-path="other.abroad" value="${S.other.abroad}"></label>
+    <p class="d" style="margin:0;color:var(--muted);font-size:13px">Cards that charge a foreign fee lose that share of this. Italy and Japan this year is why it starts at $1,500, a guess.</p>
+    <label class="field">Balance I carry month to month, $<input type="number" step="100" data-path="other.carry" value="${S.other.carry}"></label>
+    <p class="d" style="margin:0;color:var(--muted);font-size:13px">Costs the middle of each card's APR. Leave at 0 if you pay in full.</p>
+    <label class="field">Cash I'd keep in a card's savings or brokerage, $<input type="number" step="500" data-path="other.parked" value="${S.other.parked}"></label>
+    <label class="field">What my savings pays now, APY %<input type="number" step="0.1" data-path="other.base_apy" value="${S.other.base_apy}"></label>
+  </div></details>
+  <details class="sec"><summary>Add a card of your own</summary><div class="body">
+    <p class="d" style="margin:0;color:var(--muted);font-size:13px">Anything the list is missing. It ranks with the rest and is saved in this browser only.</p>
+    <div class="cform">
+      <label class="field wide">Card name<input id="cc-name" type="text" placeholder="Example Rewards Visa"></label>
+      <label class="field">Annual fee $<input id="cc-fee" type="number" value="0"></label>
+      <label class="field">1 point is worth ¢<input id="cc-cpp" type="number" step="0.1" value="1"></label>
+      <label class="field">Dining x<input id="cc-d" type="number" step="0.5" value="1"></label>
+      <label class="field">Groceries x<input id="cc-g" type="number" step="0.5" value="1"></label>
+      <label class="field">Gas x<input id="cc-ga" type="number" step="0.5" value="1"></label>
+      <label class="field">Everything else x<input id="cc-o" type="number" step="0.5" value="1"></label>
+      <label class="field">Flights x<input id="cc-fl" type="number" step="0.5" value="1"></label>
+      <label class="field">Hotels x<input id="cc-h" type="number" step="0.5" value="1"></label>
+      <label class="field">Uber and rides x<input id="cc-r" type="number" step="0.5" value="1"></label>
+      <label class="field">Amazon x<input id="cc-am" type="number" step="0.5" value="1"></label>
+      <label class="field">Credits worth $ a year<input id="cc-cr" type="number" value="0"></label>
+      <label class="field">Sign-up bonus $<input id="cc-b" type="number" value="0"></label>
+    </div>
+    <button class="btn primary" id="ccadd">Add this card</button>
+    <div class="clist">${(S.custom||[]).map((c,i)=>`<div><span>${esc(c.name)}</span><button class="btn" data-rmc="${i}">Remove</button></div>`).join("")}</div>
+  </div></details>
+  <details class="sec"><summary>Other switches</summary><div class="body">
+    <label class="check"><input type="checkbox" id="prime" ${S.has_prime?"checked":""}><span>I have Amazon Prime</span></label>
+    <label class="check"><input type="checkbox" id="pair" ${S.pair_freedom?"checked":""}><span>Count Freedom card points as Chase points<br><small style="color:var(--muted)">Only true if you also hold a Sapphire.</small></span></label>
+    ${slider("chain",'Share of hotel nights at a card\'s own chain',"Applies to Hyatt, Hilton, IHG and Marriott cards",0,100,5,Math.round(S.chain_share*100),v=>v+"%")}
+  </div></details>`;
+}
+
+/* ---------- controls strip ---------- */
+function buildControls(){
+  $("controls").innerHTML=`
+   <div class="ctl"><label for="scale"><span>Everyday spending from now on</span><output id="scale-o"></output></label>
+     <input type="range" id="scale" min="10" max="130" step="5" value="${Math.round(S.scale*100)}">
+     <p>Compared with your last 12 months. Trips are set separately. Bonuses you couldn't reach at this pace count as $0.</p></div>
+   <div class="ctl"><label for="feemax"><span>Annual fees I'll pay</span><output id="feemax-o"></output></label>
+     <input type="range" id="feemax" min="0" max="1000" step="25" value="${S.feeMax}">
+     <div class="quick">${[0,100,250,500,1000].map(v=>`<button class="chip" data-fee="${v}">${v===0?"$0":v>=1000?"No limit":"$"+v}</button>`).join("")}</div></div>`;
+  updateControls();
+}
+function updateControls(){
+  const base=S.spend.dining+S.spend.groceries+S.spend.gas+S.spend.amazon+S.spend.other+(S.spend.parents||0);
+  $("scale-o").textContent=Math.round(S.scale*100)+"% · about "+usd(base*S.scale/12)+" a month";
+  $("feemax-o").textContent=S.feeMax>=1000?"No limit":"Up to "+usd(S.feeMax)+" a year";
+  document.querySelectorAll("[data-fee]").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.fee===S.feeMax)));
+}
+/* ---------- events ---------- */
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.id==="scale"){ S.scale=t.value/100; updateControls(); }
+  else if(t.id==="feemax"){ S.feeMax=+t.value; updateControls(); }
+  else if(t.id && t.id.startsWith("pv-")){ S.pv[t.id.slice(3)]=+t.value; $(t.id+"-o").textContent=(+t.value).toFixed(2)+"¢"; }
+  else if(t.id && t.id.startsWith("use-")){ S.use[t.id.slice(4)]=+t.value; $(t.id+"-o").textContent=t.value+"%"; }
+  else if(t.id==="chain"){ S.chain_share=t.value/100; $("chain-o").textContent=t.value+"%"; }
+  else if(t.dataset.path){ const [a,b]=t.dataset.path.split("."); S[a][b]=parseFloat(t.value)||0; }
+  else if(t.dataset.extra){ S.extra[t.dataset.extra]=parseFloat(t.value)||0; }
+  else return;
+  save(); render();
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="portal"){ S.portal=t.checked; }
+  else if(t.id==="prime"){ S.has_prime=t.checked; }
+  else if(t.id==="pair"){ S.pair_freedom=t.checked; }
+  else if(t.id==="sort"){ S.sort=t.value; }
+  else if(t.dataset.perk){ S.off[t.dataset.perk]=!t.checked; }
+  else return;
+  save(); render();
+});
+document.addEventListener("click",e=>{
+  const th=e.target.closest("th[data-sort]");
+  if(th){ const k=th.dataset.sort; S.tsort = S.tsort.k===k ? {k,dir:-S.tsort.dir} : {k,dir:(k==="name"?1:-1)}; save(); render(); return; }
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.fee!==undefined){ S.feeMax=+b.dataset.fee; $("feemax").value=S.feeMax; updateControls(); save(); render(); return; }
+  if(b.dataset.f){ S.f[b.dataset.f]=!S.f[b.dataset.f]; save(); render(); return; }
+  if(b.dataset.view){ S.view=b.dataset.view; save(); render(); return; }
+  if(b.dataset.basis){ const bs=M.bases&&M.bases[b.dataset.basis]; if(bs){ S.basis=b.dataset.basis; for(const k of ["dining","groceries","gas","amazon","other"]) S.spend[k]=bs[k]; save(); buildPanelKeepOpen(); render(); } return; }
+  if(b.dataset.open){ S.view="cards"; OPEN.add(b.dataset.open); save(); render(); const el=[...document.querySelectorAll("article.card")].find(x=>x.dataset.name===b.dataset.open); if(el) el.scrollIntoView({block:"start"}); return; }
+  if(b.id==="csv"){ csvDownload(); return; }
+  if(b.dataset.rmc!==undefined){ S.custom.splice(+b.dataset.rmc,1); save(); buildPanelKeepOpen(); render(); return; }
+  if(b.id==="ccadd"){
+    const g=id=>parseFloat($(id).value)||0, name=($("cc-name").value||"").trim()||"My card";
+    const x=(id)=>g(id);
+    S.custom.push({name,fee:g("cc-fee"),fee_note:"",own_cpp:g("cc-cpp"),currency:"cash",status:"custom",checked:"issuer",perks:"Added by you",points_to:"",best_if:"",
+      earn:{dining:x("cc-d"),groceries:x("cc-g"),gas:x("cc-ga"),other:x("cc-o"),flights:x("cc-fl"),aa:x("cc-fl"),other_airline:x("cc-fl"),hotels:x("cc-h"),rideshare:x("cc-r"),amazon:x("cc-am")},
+      perks_list:g("cc-cr")?[{label:"Credits",amount:g("cc-cr"),type:"custom",note:""}]:[],bonus_cash:g("cc-b"),bonus_note:g("cc-b")?"Sign-up bonus you entered":"",
+      avail:{tier:"open",note:"A card you added."}});
+    save(); buildPanelKeepOpen(); render(); return; }
+  if(b.id==="panelbtn"){ document.body.classList.toggle("panel-open"); return; }
+  if(b.id==="panelx"){ document.body.classList.remove("panel-open"); return; }
+  if(b.dataset.mode){ S.mode=b.dataset.mode; save(); buildPanelKeepOpen(); render(); return; }
+  if(b.dataset.act){
+    const name=b.closest(".card").dataset.name;
+    if(b.dataset.act==="open"){ OPEN.has(name)?OPEN.delete(name):OPEN.add(name); }
+    if(b.dataset.act==="pin"){ const i=S.pins.indexOf(name); if(i>=0) S.pins.splice(i,1); else if(S.pins.length<4) S.pins.push(name); save(); }
+    render(); return;
+  }
+  if(b.id==="cmpgo") openCompare();
+  if(b.id==="cmpclear"){ S.pins=[]; save(); render(); }
+  if(b.id==="cmpx"){ $("cmp").hidden=true; }
+  if(b.id==="reset"){ if(confirm("Reset all your values to the defaults?")){ S=DEF(); save(); buildPanel(); render(); } }
+  if(b.id==="theme"){ const r=document.documentElement; const dark=(r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches); r.dataset.theme=dark?"light":"dark"; try{localStorage.setItem("cardvalue.theme",r.dataset.theme)}catch(e){} }
+});
+$("cmp").addEventListener("click",e=>{ if(e.target===$("cmp")) $("cmp").hidden=true; });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("cmp").hidden=true; document.body.classList.remove("panel-open"); } });
+function buildPanelKeepOpen(){
+  const open=[...document.querySelectorAll("#panel details")].map(d=>d.open);
+  buildPanel();
+  document.querySelectorAll("#panel details").forEach((d,i)=>d.open=open[i]);
+}
+try{ const th=localStorage.getItem("cardvalue.theme"); if(th) document.documentElement.dataset.theme=th; }catch(e){}
+if(SHARE){ $("subline").textContent="Compare "+D.cards.length+" credit cards on what they are worth to you. Set what a point, a credit and a perk is worth, how much you spend and the fees you will pay. Everything runs in your browser and nothing is sent anywhere."; }
+buildControls(); buildPanel(); render();
+</script>
+</body>
+</html>
