@@ -82,7 +82,12 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:2px 0
 .list{display:grid;gap:12px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px}
 .card.pinned{outline:2px solid var(--accent)}
-.head{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center}
+.head{display:grid;grid-template-columns:auto auto 1fr auto;gap:14px;align-items:center}
+@media (max-width:620px){.head{grid-template-columns:auto 1fr auto}.artcell{display:none}}
+.rates{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.rates .rt{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:5px 9px;font-size:12.5px;line-height:1.25}
+.rates .rt b{display:block;font-size:14px}
+.rates .rt.hi{border-color:var(--accent);background:var(--accent-soft)}
 .rank{width:34px;height:34px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px}
 .name{font-weight:650;font-size:17px;line-height:1.2}
 .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
@@ -141,6 +146,12 @@ table.sheet{border-collapse:separate;border-spacing:0;width:max-content;min-widt
 .g-gives{background:color-mix(in srgb,var(--c-everyday) 14%,var(--surface)) !important}
 .g-worth{background:color-mix(in srgb,var(--accent) 16%,var(--surface)) !important}
 .g-facts{background:var(--surface2)}
+.g-rates{background:color-mix(in srgb,var(--c-credits) 18%,var(--surface)) !important}
+.sheet td small{display:block;color:var(--muted);font-size:11px}
+.sheet td.hi{color:var(--accent);font-weight:650}
+.sheet td.hi small{color:var(--accent)}
+.nm{display:flex;gap:10px;align-items:center}
+.art{flex:none;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .sheet td.net{font-weight:750;color:var(--accent);font-size:14.5px}
 .sheet td.neg{color:var(--bad)}
 .sheet td.sep,.sheet th.sep{border-left:2px solid var(--line)}
@@ -218,6 +229,9 @@ const TRIP_CATS = new Set(["flights","hotels","rideshare"]);
 
 const CUR = {
   delta:["Delta SkyMiles","Delta flights only"],
+  southwest:["Southwest Rapid Rewards","Southwest flights only"],
+  jetblue:["JetBlue TrueBlue","JetBlue flights only"],
+  atmos:["Atmos Rewards (Alaska + Hawaiian)","Alaska and Hawaiian flights"],
   united:["United MileagePlus miles","United flights only"],
   amex:["Amex Membership Rewards","Move to airline and hotel partners"],
   chase:["Chase Ultimate Rewards","Move to partners, or use in Chase Travel"],
@@ -246,6 +260,7 @@ const PERKTYPE = {
   flex:["Flexible cash (Bilt Cash)",""],
   lifestyle:["Lifestyle credits (delivery, fitness)",""],
   ride_other:["Lyft and chauffeur credits (not Uber)",""],
+  bag:["Free checked bags on a card's airline","Counts the bag fee you would otherwise pay"],
   custom:["Credits on cards you added",""],
   other:["Other credits",""]
 };
@@ -253,10 +268,10 @@ const DEF = () => ({
   basis:"b12",
   spend:Object.assign({dining:4300,groceries:1000,gas:2100,amazon:500,other:16200},(M.bases&&M.bases.b12)||{},{parents:0,paypal:M.paypal??0}),
   view:"table", tsort:{k:"net",dir:-1}, scale:(M.scale??1), feeMax:1000, custom:[],
-  trips:{visits:M.visits??52,flights_per_visit:M.flights_per_visit??138.46,hotel_nights:M.hotel_nights??1,hotel_rate:M.hotel_rate??150,uber_per_visit:M.uber_per_visit??80,aa_share:M.aa_share??0.5},
+  trips:{visits:M.visits??52,flights_per_visit:M.flights_per_visit??138.46,hotel_nights:M.hotel_nights??1,hotel_rate:M.hotel_rate??150,uber_per_visit:M.uber_per_visit??80,aa_share:M.aa_share??0.5,bag_fee:M.bag_fee??0,share:Object.assign({aa:0.44,delta:0.56,united:0,southwest:0,jetblue:0,alaska:0},M.share||{})},
   portal:false, chain_share:M.chain_share??0.25, has_prime:false, pair_freedom:false, mode:"steady",
-  pv:{delta:1.1,united:1.2,amex:2.0,chase:2.05,citi:1.9,bilt:2.2,aa:1.4,marriott:.7,hilton:.5,hyatt:1.7,ihg:.5,cash:1.0},
-  use:{custom:100,ride:100,hotel:100,travel:100,airline:50,dining:0,shopping:0,streaming:0,entertainment:0,security:0,lounge:0,freenight:0,flex:50,lifestyle:25,hotel_big:0,ride_other:0,other:0},
+  pv:{delta:1.1,united:1.2,southwest:1.4,jetblue:1.4,atmos:1.4,amex:2.0,chase:2.05,citi:1.9,bilt:2.2,aa:1.4,marriott:.7,hilton:.5,hyatt:1.7,ihg:.5,cash:1.0},
+  use:{bag:100,custom:100,ride:100,hotel:100,travel:100,airline:50,dining:0,shopping:0,streaming:0,entertainment:0,security:0,lounge:0,freenight:0,flex:50,lifestyle:25,hotel_big:0,ride_other:0,other:0},
   other:{metal:0,abroad:1500,carry:0,parked:0,base_apy:0},
   off:{}, extra:{}, pins:[],
   f:{approved:false,get:false,nolock:false,norestrict:false,nofee:false,cash:false,metal:false,nofx:false,excl:false}, sort:"net"
@@ -274,7 +289,7 @@ const usd = n => (n<0?"-$":"$")+Math.abs(Math.round(n)).toLocaleString();
 function calc(c){
   const t=S.trips, sp0=S.spend, k0=S.scale;
   const sp={dining:sp0.dining*k0,groceries:sp0.groceries*k0,gas:sp0.gas*k0,amazon:sp0.amazon*k0,other:sp0.other*k0,parents:(sp0.parents||0)*k0,paypal:(sp0.paypal||0)*k0};
-  const flights=t.flights_per_visit*t.visits, aaF=flights*t.aa_share, otF=flights-aaF;
+  const flights=t.flights_per_visit*t.visits, ownShare=c.airline?(t.share[c.airline]||0):t.aa_share, aaF=flights*ownShare, otF=flights-aaF;
   const hotels=t.visits*t.hotel_nights*t.hotel_rate, ride=t.visits*t.uber_per_visit;
   const noPrime = c.needs==="prime" && !S.has_prime;
   const e = noPrime ? Object.assign({},c.earn,c.no_prime) : c.earn;
@@ -301,6 +316,10 @@ function calc(c){
     const on = !S.off[key];
     const val = on ? p.amount*((S.use[p.type]??0)/100) : 0;
     credits+=val; perkVals.push({p,key,on,val});
+  }
+  if(c.bags){
+    const legs=t.visits*2*ownShare, bv=c.bags*(+t.bag_fee||0)*legs*((S.use.bag??100)/100);
+    credits+=bv; perkVals.push({p:{label:`Free checked bag${c.bags>1?"s":""} on its airline`,amount:bv,type:"bag",note:`${Math.round(legs)} flights a year at your bag fee`},key:c.name+"|bag",on:true,val:bv});
   }
   const extra = +S.extra[c.name]||0;
   const bf = S.mode==="year1" ? 1 : S.mode==="avg3" ? 1/3 : 0;
@@ -366,6 +385,60 @@ function bestStacks(rows){
   return out;
 }
 
+/* ---------- card picture and earn rates ---------- */
+function artColors(c){
+  const n=c.name.toLowerCase();
+  const T=(a,b,ink="#fff")=>({a,b,ink});
+  if(/platinum/.test(n)&&/amex|\(amex\)|^amex/.test(n)) return T("#e4e6ea","#9aa0a8","#20242a");
+  if(/bilt palladium/.test(n)) return T("#e9e7e2","#a9a59b","#1b1a18");
+  if(/bilt/.test(n)) return T("#1b1b1f","#3b3b44");
+  if(/amex gold/.test(n)) return T("#d8b765","#a98530","#2b2108");
+  if(/amex green/.test(n)) return T("#4f9f7e","#1f6a4d");
+  if(/blue cash/.test(n)) return T("#2f80d8","#14509c");
+  if(/sapphire reserve/.test(n)) return T("#1b2230","#0c111b");
+  if(/sapphire/.test(n)) return T("#2b5aa8","#142e5e");
+  if(/freedom|amazon|ihg|hyatt|marriott bonvoy boundless|united|southwest/.test(n)&&!/southwest/.test(n)) return /united/.test(n)?T("#1f4fb4","#0a2a74"):T("#1a73c9","#0b4b8d");
+  if(/southwest/.test(n)) return T("#3552c4","#1a2f86");
+  if(/delta/.test(n)) return T("#0a3a78","#c01933");
+  if(/jetblue/.test(n)) return T("#1b59d6","#0a2d7e");
+  if(/atmos|alaska/.test(n)) return T("#0f5b78","#06344a");
+  if(/aadvantage|citi aadvantage/.test(n)) return T("#a9b3c2","#58708f","#10202f");
+  if(/citi|strata|costco/.test(n)) return T("#1a5fb8","#0a3578");
+  if(/bank of america|bofa/.test(n)) return T("#d1342b","#8f1b17");
+  if(/capital one/.test(n)) return T("#0a5a8a","#042f4a");
+  if(/wells fargo/.test(n)) return T("#c4262e","#7e1117");
+  if(/discover/.test(n)) return T("#f58a1f","#c35a00","#1d1100");
+  if(/apple/.test(n)) return T("#f4f4f2","#cfcfcc","#1d1d1f");
+  if(/robinhood/.test(n)) return T("#14291e","#0a140e","#9af0c2");
+  if(/u\.?s\.? bank|altitude/.test(n)) return T("#1b3a8c","#0c1e54");
+  if(/uber/.test(n)) return T("#111","#2b2b2b");
+  if(/navy federal/.test(n)) return T("#0a2b57","#071a35");
+  if(/hilton/.test(n)) return T("#143a73","#0a1f40");
+  return T("#4b5563","#1f2937");
+}
+function cardArt(c,w=96){
+  const col=artColors(c), h=Math.round(w*0.63), id="g"+Math.abs([...c.name].reduce((s,ch)=>(s*31+ch.charCodeAt(0))|0,7));
+  const label=c.name.replace(" (you have it)","").replace(/ \((Amex|Chase|Barclays|Bank of America)\)/,"");
+  let lines=[label];
+  if(label.length>15){ let cut=label.lastIndexOf(" ",15); if(cut<6) cut=label.indexOf(" ",15); lines= cut>0 ? [label.slice(0,cut),label.slice(cut+1)] : [label]; if(lines[1]&&lines[1].length>20) lines[1]=lines[1].slice(0,19)+"…"; }
+  const fs=w*0.095;
+  return `<svg class="art" width="${w}" height="${h}" viewBox="0 0 160 101" role="img" aria-label="Illustration of the ${esc(label)} card" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${col.a}"/><stop offset="1" stop-color="${col.b}"/></linearGradient>
+  ${c.metal?`<linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`:""}</defs>
+  <rect x="1" y="1" width="158" height="99" rx="9" fill="url(#${id})" stroke="rgba(0,0,0,.25)"/>
+  ${c.metal?`<rect x="1" y="1" width="158" height="99" rx="9" fill="url(#${id}m)"/>`:""}
+  <rect x="14" y="30" width="22" height="16" rx="3" fill="#d9b86a" opacity=".92"/><path d="M14 38h22M25 30v16" stroke="#8a6d2a" stroke-width=".8" opacity=".7"/>
+  ${lines.map((t,i)=>`<text x="14" y="${68+i*15}" fill="${col.ink}" font-size="13.5" font-weight="700" font-family="-apple-system,Segoe UI,Roboto,sans-serif">${esc(t)}</text>`).join("")}
+  <text x="146" y="20" text-anchor="end" fill="${col.ink}" opacity=".75" font-size="8.5" font-weight="600" font-family="-apple-system,Segoe UI,Roboto,sans-serif">${c.fee?"$"+c.fee+" fee":"No fee"}</text>
+  </svg>`;
+}
+function rateRows(r){
+  const c=r.c, e=c.earn, portal=S.portal;
+  const own=c.airline?e.aa:(portal&&e.flights_portal!=null?e.flights_portal:e.flights);
+  const hot=portal&&e.hotels_portal!=null?e.hotels_portal:e.hotels;
+  return [["dining","Dining",e.dining],["groceries","Groceries",e.groceries],["gas","Gas",e.gas],["flights",c.airline?"Its airline":"Flights",own],["hotels","Hotels",hot],["rideshare","Uber & rides",e.rideshare],["other","Everything else",e.other],["amazon","Amazon",e.amazon??e.other]].map(([k,l,x])=>({k,l,x,pct:x*r.v*100}));
+}
+const pctTxt=p=>(p>=10?p.toFixed(0):p.toFixed(1))+"%";
 /* ---------- table view ---------- */
 const COLS=[
  {k:"name",l:"Card",g:""},
@@ -379,6 +452,13 @@ const COLS=[
  {k:"other",l:"Other factors",g:"worth",v:r=>r.other,f:r=>usd(r.other)},
  {k:"fee",l:"Annual fee",g:"worth",v:r=>-r.fee,f:r=>r.fee?"−"+usd(r.fee).replace("-",""):"$0"},
  {k:"net",l:"Worth to you / yr",g:"worth",v:r=>r.net,f:r=>usd(r.net),cls:"net"},
+ {k:"r_dining",l:"Dining",g:"rates",rate:"dining",sep:1},
+ {k:"r_groceries",l:"Groceries",g:"rates",rate:"groceries"},
+ {k:"r_gas",l:"Gas",g:"rates",rate:"gas"},
+ {k:"r_flights",l:"Flights",g:"rates",rate:"flights"},
+ {k:"r_hotels",l:"Hotels",g:"rates",rate:"hotels"},
+ {k:"r_rideshare",l:"Uber & rides",g:"rates",rate:"rideshare"},
+ {k:"r_other",l:"Everything else",g:"rates",rate:"other"},
  {k:"metal",l:"Metal card",g:"facts",v:r=>r.c.metal?1:0,f:r=>r.c.metal?'<span class="yes">Yes</span>':'<span class="no">-</span>',sep:1},
  {k:"ftf",l:"Foreign fee",g:"facts",v:r=>r.c.ftf==null?99:r.c.ftf,f:r=>r.c.ftf==null?'<span class="no">?</span>':(r.c.ftf===0?'<span class="yes">None</span>':'<span class="warn">'+r.c.ftf+'%</span>')},
  {k:"apr",l:"APR",g:"facts",v:r=>r.c.apr?r.c.apr[0]:999,f:r=>r.c.apr?r.c.apr[0]+"–"+r.c.apr[1]+"%":'<span class="no">?</span>'},
@@ -392,12 +472,13 @@ function tableHTML(rows){
   const val=r=>col.k==="name"?r.c.name.toLowerCase():col.v(r);
   rows=[...rows].sort((a,b)=>{const x=val(a),y=val(b);return (x<y?-1:x>y?1:0)*ts.dir;});
   const grp=(g,l,n)=>`<th class="g-${g}" colspan="${n}">${l}</th>`;
-  const head=`<thead><tr class="grp"><th></th>${grp("gives","What it gives",3)}${grp("worth","What it's worth to you",7)}${grp("facts","Facts",7)}</tr>
+  const head=`<thead><tr class="grp"><th></th>${grp("gives","What it gives",3)}${grp("worth","What it's worth to you",7)}${grp("rates","Earn per $1 spent, and what it is worth",7)}${grp("facts","Facts",7)}</tr>
   <tr class="cols">${COLS.map(c=>`<th data-sort="${c.k}" class="${c.sep?"sep":""} ${c.g?"g-"+c.g:""}">${c.l}${ts.k===c.k?`<span class="arrow">${ts.dir<0?"▼":"▲"}</span>`:""}</th>`).join("")}</tr></thead>`;
-  const body=rows.map(r=>`<tr>${COLS.map(c=>{
-    if(c.k==="name") return `<td class="name"><button data-open="${esc(r.c.name)}">${esc(r.c.name)}</button><small>${r.c.fee?usd(r.c.fee)+" fee":"No fee"}${r.c.fee_note?" · "+esc(r.c.fee_note):""}</small></td>`;
+  const body=rows.map(r=>{ const rr=Object.fromEntries(rateRows(r).map(x=>[x.k,x])); return `<tr>${COLS.map(c=>{
+    if(c.rate){ const x=rr[c.rate]; const hi=x.pct>=4; return `<td class="${c.sep?"sep":""} ${hi?"hi":""}">${x.x}x<small>${pctTxt(x.pct)}</small></td>`; }
+    if(c.k==="name") return `<td class="name"><div class="nm">${cardArt(r.c,46)}<div><button data-open="${esc(r.c.name)}">${esc(r.c.name)}</button><small>${r.c.fee?usd(r.c.fee)+" fee":"No fee"}${r.c.fee_note?" · "+esc(r.c.fee_note):""}</small></div></div></td>`;
     const neg=c.k==="net"&&r.net<0;
-    return `<td class="${c.cls||""} ${neg?"neg":""} ${c.sep?"sep":""}">${c.f(r)}</td>`;}).join("")}</tr>`).join("");
+    return `<td class="${c.cls||""} ${neg?"neg":""} ${c.sep?"sep":""}">${c.f(r)}</td>`;}).join("")}</tr>`;}).join("");
   return `<div class="tablewrap"><table class="sheet">${head}<tbody>${body}</tbody></table></div>`;
 }
 function csvDownload(){
@@ -480,12 +561,14 @@ function cardHTML(r,rank,maxGross){
   return `<article class="card ${pinned?"pinned":""}" data-name="${esc(c.name)}">
     <div class="head">
       <div class="rank num">${rank}</div>
+      <div class="artcell">${cardArt(c,92)}</div>
       <div><div class="name">${esc(c.name)}</div><div class="tags">${tagsHTML(c)}</div></div>
       <div class="big"><div class="n num ${r.net<0?"neg":""}">${usd(r.net)}</div><div class="u">worth to you / yr</div></div>
     </div>
     <div class="meter" aria-hidden="true">${meter}</div>
     <div class="legend"><span style="--c:var(--c-everyday)">Everyday ${usd(r.everyday)}</span><span style="--c:var(--c-trips)">Trips ${usd(r.trips)}</span><span style="--c:var(--c-credits)">Credits ${usd(r.credits)}</span>${r.bonus?`<span style="--c:var(--c-bonus)">Bonus ${usd(r.bonus)}</span>`:""}${r.other?`<span style="--c:var(--accent)">Other ${usd(r.other)}</span>`:""}<span style="--c:var(--bad)">Fee −${usd(r.fee).replace("$","$")}</span></div>
-    <p class="why">${esc(whyLine(r))}</p>
+    <div class="rates" aria-label="Earn rate per dollar">${rateRows(r).filter(x=>x.x>0).map(x=>`<div class="rt ${x.pct>=4?"hi":""}"><b>${x.x}x ${esc(x.l)}</b>= ${pctTxt(x.pct)} back</div>`).join("")}</div>
+    <p class="why">1 ${r.cur==="cash"?"point":"point or mile"} = ${(r.v*100).toFixed(2)}¢. ${esc(whyLine(r))}</p>
     <div class="acts"><button class="btn" data-act="open">${open?"Hide details":"Show details"}</button><button class="btn ${pinned?"primary":""}" data-act="pin">${pinned?"Pinned":"Compare"}</button></div>
     ${open?detailHTML(r):""}
   </article>`;
@@ -567,7 +650,7 @@ function slider(id,label,desc,min,max,step,val,fmt){
   return `<div class="row"><label class="t" for="${id}"><span>${esc(label)}</span><output id="${id}-o">${fmt(val)}</output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}">${desc?`<p class="d">${esc(desc)}</p>`:""}</div>`;
 }
 function numField(path,label,step){
-  const [a,b]=path.split("."); const val=S[a][b];
+  const ps=path.split("."); const val=ps.reduce((o,k)=>o[k],S);
   return `<label class="field">${esc(label)}<input type="number" step="${step||"any"}" inputmode="decimal" data-path="${path}" value="${val}"></label>`;
 }
 function buildPanel(){
@@ -597,7 +680,7 @@ function buildPanel(){
   </div></details>
   ${(M.audit&&M.audit.length)?`<details class="sec" open><summary>Check my numbers</summary><div class="body audit"><ul>${M.audit.map(a=>`<li><b class="${a.s}">${a.s==="ok"?"Ties out":a.s==="fixed"?"Fixed":"Heads up"}.</b> ${esc(a.t)}</li>`).join("")}</ul></div></details>`:""}
   <details class="sec"><summary>College visits</summary><div class="body"><div class="grid2">
-    ${numField("trips.visits","Visits a year")}${numField("trips.flights_per_visit","Flights $ per visit")}${numField("trips.hotel_nights","Hotel nights")}${numField("trips.hotel_rate","Hotel $ per night")}${numField("trips.uber_per_visit","Uber $ per visit")}${numField("trips.aa_share","Share of flights on the card's airline (0-1)","0.05")}
+    ${numField("trips.visits","Visits a year")}${numField("trips.flights_per_visit","Flights $ per visit")}${numField("trips.hotel_nights","Hotel nights")}${numField("trips.hotel_rate","Hotel $ per night")}${numField("trips.uber_per_visit","Uber $ per visit")}${numField("trips.share.aa","Flights on American (0-1)","0.05")}${numField("trips.share.delta","Flights on Delta (0-1)","0.05")}${numField("trips.share.united","Flights on United (0-1)","0.05")}${numField("trips.share.southwest","Flights on Southwest (0-1)","0.05")}${numField("trips.share.jetblue","Flights on JetBlue (0-1)","0.05")}${numField("trips.share.alaska","Flights on Alaska (0-1)","0.05")}${numField("trips.bag_fee","Checked bag fee per flight $")}
   </div>
   <label class="check"><input type="checkbox" id="portal" ${S.portal?"checked":""}><span>I'll book flights and hotels in card travel sites<br><small style="color:var(--muted)">Unlocks 5x to 12x rates. Prices there may differ.</small></span></label></div></details>
   <details class="sec"><summary>Other things that matter</summary><div class="body">
@@ -661,7 +744,7 @@ document.addEventListener("input",e=>{
   else if(t.id && t.id.startsWith("pv-")){ S.pv[t.id.slice(3)]=+t.value; $(t.id+"-o").textContent=(+t.value).toFixed(2)+"¢"; }
   else if(t.id && t.id.startsWith("use-")){ S.use[t.id.slice(4)]=+t.value; $(t.id+"-o").textContent=t.value+"%"; }
   else if(t.id==="chain"){ S.chain_share=t.value/100; $("chain-o").textContent=t.value+"%"; }
-  else if(t.dataset.path){ const [a,b]=t.dataset.path.split("."); S[a][b]=parseFloat(t.value)||0; }
+  else if(t.dataset.path){ const ps=t.dataset.path.split("."); const last=ps.pop(); ps.reduce((o,k)=>o[k],S)[last]=parseFloat(t.value)||0; }
   else if(t.dataset.extra){ S.extra[t.dataset.extra]=parseFloat(t.value)||0; }
   else return;
   save(); render();
