@@ -137,7 +137,7 @@ table.sheet{border-collapse:separate;border-spacing:0;width:max-content;min-widt
 .sheet th,.sheet td{padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right;background:var(--surface)}
 .sheet tbody tr:nth-child(even) td{background:var(--surface2)}
 .sheet tbody tr:hover td{background:var(--accent-soft)}
-.sheet th:first-child,.sheet td:first-child{position:sticky;left:0;text-align:left;z-index:1;min-width:210px;border-right:1px solid var(--line)}
+.sheet th:first-child,.sheet td:first-child{position:sticky;left:0;text-align:left;z-index:1;min-width:250px;border-right:1px solid var(--line)}
 .sheet thead th{position:sticky;z-index:3;background:var(--surface2);font-weight:600;cursor:pointer;user-select:none}
 .sheet thead tr.grp th{top:0;cursor:default;text-align:center;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .sheet thead tr.cols th{top:34px;font-size:12.5px;white-space:normal;vertical-align:bottom;line-height:1.2;min-width:70px}
@@ -148,10 +148,16 @@ table.sheet{border-collapse:separate;border-spacing:0;width:max-content;min-widt
 .g-facts{background:var(--surface2)}
 .g-rates{background:color-mix(in srgb,var(--c-credits) 18%,var(--surface)) !important}
 .sheet td small{display:block;color:var(--muted);font-size:11px}
+.sheet td.rt{min-width:70px;padding:7px 8px}
 .sheet td.hi{color:var(--accent);font-weight:650}
 .sheet td.hi small{color:var(--accent)}
 .nm{display:flex;gap:10px;align-items:center}
 .art{flex:none;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.artbox{display:inline-block;position:relative;flex:none}
+.artimg{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,.35))}
+.artfb{display:none}
+.artbox.noimg .artimg{display:none}
+.artbox.noimg .artfb{display:block}
 .sheet td.net{font-weight:750;color:var(--accent);font-size:14.5px}
 .sheet td.neg{color:var(--bad)}
 .sheet td.sep,.sheet th.sep{border-left:2px solid var(--line)}
@@ -358,6 +364,7 @@ function visible(c){
   if(f.nofee && c.fee>0) return false;
   if(f.cash && c.currency!=="cash") return false;
   if(f.metal && !c.metal) return false;
+  if(f.premium && c.fee<500) return false;
   if(f.nofx && c.ftf!==0) return false;
   return true;
 }
@@ -416,7 +423,7 @@ function artColors(c){
   if(/hilton/.test(n)) return T("#143a73","#0a1f40");
   return T("#4b5563","#1f2937");
 }
-function cardArt(c,w=96){
+function cardArtSvg(c,w=96){
   const col=artColors(c), h=Math.round(w*0.63), id="g"+Math.abs([...c.name].reduce((s,ch)=>(s*31+ch.charCodeAt(0))|0,7));
   const label=c.name.replace(" (you have it)","").replace(/ \((Amex|Chase|Barclays|Bank of America)\)/,"");
   let lines=[label];
@@ -431,6 +438,12 @@ function cardArt(c,w=96){
   ${lines.map((t,i)=>`<text x="14" y="${68+i*15}" fill="${col.ink}" font-size="13.5" font-weight="700" font-family="-apple-system,Segoe UI,Roboto,sans-serif">${esc(t)}</text>`).join("")}
   <text x="146" y="20" text-anchor="end" fill="${col.ink}" opacity=".75" font-size="8.5" font-weight="600" font-family="-apple-system,Segoe UI,Roboto,sans-serif">${c.fee?"$"+c.fee+" fee":"No fee"}</text>
   </svg>`;
+}
+function cardArt(c,w=96){
+  const svg=cardArtSvg(c,w);
+  if(!c.img) return svg;
+  const h=Math.round(w*0.63);
+  return `<span class="artbox" style="width:${w}px;height:${h}px"><img class="artimg" src="${esc(c.img)}" width="${w}" alt="${esc(c.name)} card" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg')"><span class="artfb">${svg}</span></span>`;
 }
 function rateRows(r){
   const c=r.c, e=c.earn, portal=S.portal;
@@ -467,16 +480,18 @@ const COLS=[
  {k:"url",l:"Apply",g:"facts",v:r=>0,f:r=>`<a href="${esc(r.c.url||("https://www.google.com/search?q="+encodeURIComponent(r.c.name+" credit card apply")))}" target="_blank" rel="noopener">${r.c.url?"Issuer page":"Search"}</a>`},
  {k:"lock",l:"Lock / status",g:"facts",v:r=>0,f:r=>{const t=[];if(r.c.status==="custom")t.push("Added by you");if(r.bonusBlocked)t.push("Bonus out of reach");if(r.c.lock==="airline")t.push("Airline");if(r.c.chain)t.push("Hotel chain");if(r.c.status==="approved")t.push("Approved");if(r.c.status==="has")t.push("You have it");if(r.c.status==="waitlist")t.push("Waitlist");if(r.c.status==="membership needed")t.push("Membership");if(r.c.status==="students only")t.push("Students");if(r.c.checked!=="issuer")t.push("Unchecked");return t.join(", ")||'<span class="no">-</span>';}}
 ];
+const GORD={"":0,rates:1,gives:2,worth:3,facts:4};
+COLS.sort((a,b)=>GORD[a.g||""]-GORD[b.g||""]);
 function tableHTML(rows){
   const ts=S.tsort, col=COLS.find(c=>c.k===ts.k)||COLS.find(c=>c.k==="net");
   const val=r=>col.k==="name"?r.c.name.toLowerCase():col.v(r);
   rows=[...rows].sort((a,b)=>{const x=val(a),y=val(b);return (x<y?-1:x>y?1:0)*ts.dir;});
   const grp=(g,l,n)=>`<th class="g-${g}" colspan="${n}">${l}</th>`;
-  const head=`<thead><tr class="grp"><th></th>${grp("gives","What it gives",3)}${grp("worth","What it's worth to you",7)}${grp("rates","Earn per $1 spent, and what it is worth",7)}${grp("facts","Facts",7)}</tr>
+  const head=`<thead><tr class="grp"><th></th>${grp("rates","Points or miles earned per $1, and what that is worth",7)}${grp("gives","What it gives",3)}${grp("worth","What it's worth to you",7)}${grp("facts","Facts",7)}</tr>
   <tr class="cols">${COLS.map(c=>`<th data-sort="${c.k}" class="${c.sep?"sep":""} ${c.g?"g-"+c.g:""}">${c.l}${ts.k===c.k?`<span class="arrow">${ts.dir<0?"▼":"▲"}</span>`:""}</th>`).join("")}</tr></thead>`;
   const body=rows.map(r=>{ const rr=Object.fromEntries(rateRows(r).map(x=>[x.k,x])); return `<tr>${COLS.map(c=>{
     if(c.rate){ const x=rr[c.rate]; const hi=x.pct>=4; return `<td class="${c.sep?"sep":""} ${hi?"hi":""}">${x.x}x<small>${pctTxt(x.pct)}</small></td>`; }
-    if(c.k==="name") return `<td class="name"><div class="nm">${cardArt(r.c,46)}<div><button data-open="${esc(r.c.name)}">${esc(r.c.name)}</button><small>${r.c.fee?usd(r.c.fee)+" fee":"No fee"}${r.c.fee_note?" · "+esc(r.c.fee_note):""}</small></div></div></td>`;
+    if(c.k==="name") return `<td class="name"><div class="nm">${cardArt(r.c,78)}<div><button data-open="${esc(r.c.name)}">${esc(r.c.name)}</button><small>${r.c.fee?usd(r.c.fee)+" fee":"No fee"}${r.c.fee_note?" · "+esc(r.c.fee_note):""}</small></div></div></td>`;
     const neg=c.k==="net"&&r.net<0;
     return `<td class="${c.cls||""} ${neg?"neg":""} ${c.sep?"sep":""}">${c.f(r)}</td>`;}).join("")}</tr>`;}).join("");
   return `<div class="tablewrap"><table class="sheet">${head}<tbody>${body}</tbody></table></div>`;
@@ -521,7 +536,7 @@ function renderStacks(sorted){
 }
 function shortName(n){ return n.replace(" (you have it)","").replace("Capital One ","CapOne ").replace("Bank of America ","BofA ").replace("Navy Federal ","NFCU ").replace(" Visa Signature",""); }
 function renderFilters(n,total){
-  const chips=[...(SHARE?[]:[["approved","Approved / yours"]]),["get","I can get it"],["nolock","No airline or hotel lock"],["norestrict","Open to me today"],["nofee","No annual fee"],["cash","Cash back only"],["metal","Metal card"],["nofx","No foreign fee"],["excl","Show Capital One + Wells Fargo"]];
+  const chips=[...(SHARE?[]:[["approved","Approved / yours"]]),["nolock","No airline or hotel lock"],["nofee","No annual fee"],["premium","$500+ fee cards only"],["cash","Cash back only"],["metal","Metal card"],["nofx","No foreign fee"]];
   $("filters").innerHTML = chips.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${S.f[k]}">${l}</button>`).join("")
    + `<select id="sort" aria-label="Sort"><option value="net">Sort: worth to me</option><option value="rewards">Sort: everyday + trip rewards</option><option value="trips">Sort: best on trips</option><option value="fee">Sort: lowest fee</option></select>`
    + `<span class="count">Showing ${n} of ${total}</span>`;
@@ -561,7 +576,7 @@ function cardHTML(r,rank,maxGross){
   return `<article class="card ${pinned?"pinned":""}" data-name="${esc(c.name)}">
     <div class="head">
       <div class="rank num">${rank}</div>
-      <div class="artcell">${cardArt(c,92)}</div>
+      <div class="artcell">${cardArt(c,150)}</div>
       <div><div class="name">${esc(c.name)}</div><div class="tags">${tagsHTML(c)}</div></div>
       <div class="big"><div class="n num ${r.net<0?"neg":""}">${usd(r.net)}</div><div class="u">worth to you / yr</div></div>
     </div>
@@ -733,7 +748,8 @@ function buildControls(){
 function updateControls(){
   const base=S.spend.dining+S.spend.groceries+S.spend.gas+S.spend.amazon+S.spend.other+(S.spend.parents||0);
   $("scale-o").textContent=Math.round(S.scale*100)+"% · about "+usd(base*S.scale/12)+" a month";
-  $("feemax-o").textContent=S.feeMax>=1000?"No limit":"Up to "+usd(S.feeMax)+" a year";
+  const hid=allCards().filter(c=>S.feeMax<1000&&c.fee>S.feeMax).length;
+  $("feemax-o").textContent=S.feeMax>=1000?"No limit":"Up to "+usd(S.feeMax)+" a year"+(hid?" · hiding "+hid+" pricier cards":"");
   document.querySelectorAll("[data-fee]").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.fee===S.feeMax)));
 }
 /* ---------- events ---------- */
