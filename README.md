@@ -17,3 +17,7 @@ Card terms come from issuer pages read in October 2026, plus a few from secondar
 The starting spending numbers are examples. Replace them with your own.
 
 This is not financial advice, it uses no affiliate links, and it is not affiliated with any card issuer.
+
+## Accounts (optional)
+
+Sign-in with email and password, saved numbers that follow you across devices, and 2-step codes can be switched on with a free Supabase project. Your saved numbers are encrypted in the browser before they leave it. See [AUTH_SETUP.md](AUTH_SETUP.md). Until that is set up, the Sign in button stays hidden and everything stays in your browser.
