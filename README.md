@@ -7,6 +7,7 @@ Set what a point, a credit and a perk is worth, how much you spend each year, ho
 - Over 60 US cards: cash back, travel, airline, hotel, premium cards over $500, and a few you may not be able to get (marked).
 - "What it gives" (points, credits and sign-up bonus offered) next to "what it's worth to you" (dollars after your values and the fee).
 - Notes on whether each card is realistically open to you (issuer rules like Chase's 5/24), with a link to the issuer page.
+- Starts by asking what you spend: type it in per month or per year (or give one monthly total and let it split it), or drop in CSV exports from your bank, card, Rocket Money or Mint. The files are read in your browser and never uploaded; only the category totals are kept.
 - Works offline. Open `index.html`, or host the folder on GitHub Pages. Everything runs in your browser. Your settings stay in your browser's local storage and nothing is sent anywhere.
 
 ## Data

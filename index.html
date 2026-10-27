@@ -128,7 +128,10 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px;margin:2px 0
 .cmpcol h3{margin:0 0 4px;font-size:17px}
 .foot{margin-top:28px;color:var(--muted);font-size:13px;max-width:80ch}
 .foot a{color:var(--muted)}
-.cmp[hidden],.tray[hidden]{display:none}
+.cmp[hidden],.tray[hidden],.wiz[hidden]{display:none}
+.wiz{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:14;display:grid;place-items:center;padding:12px}
+.wbox{background:var(--bg);border-radius:20px;max-width:820px;width:100%;max-height:94vh;overflow:auto;padding:22px}
+.wbox .field select{border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:9px 10px;min-height:40px}
 .seg2{display:inline-grid;grid-auto-flow:column;border:1px solid var(--line);border-radius:999px;overflow:hidden}
 .seg2 button{border:0;background:var(--surface);padding:8px 16px;cursor:pointer;min-height:40px}
 .seg2 button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
@@ -194,7 +197,8 @@ table.sheet{border-collapse:separate;border-spacing:0;width:max-content;min-widt
       <p class="sub" id="subline">Set what points, credits and perks are worth to you. Every card re-ranks instantly. Runs on your computer only; your numbers never leave this page.</p>
     </div>
     <div class="tools">
-      <button class="btn primary" id="panelbtn">What things are worth to me</button>
+      <button class="btn primary" id="spendbtn">My spending</button>
+      <button class="btn" id="panelbtn">What things are worth to me</button>
       <div class="seg2" role="group" aria-label="View"><button data-view="table" aria-pressed="false">Table</button><button data-view="cards" aria-pressed="false">Cards</button></div>
       <button class="btn" id="csv">Download CSV</button>
       <button class="btn" id="reset">Reset my values</button>
@@ -221,6 +225,7 @@ table.sheet{border-collapse:separate;border-spacing:0;width:max-content;min-widt
 
 <div class="tray" id="tray" hidden><div class="in" id="trayin"></div></div>
 <div class="cmp" id="cmp" hidden></div>
+<div class="wiz" id="wiz" hidden role="dialog" aria-modal="true" aria-labelledby="wiztitle"></div>
 
 <script src="data.js"></script>
 <script src="my-spend.js"></script>
@@ -734,6 +739,201 @@ function buildPanel(){
   </div></details>`;
 }
 
+/* ---------- spending wizard: type it in, or read a CSV in the browser ---------- */
+const TYPICAL={dining:0.12,groceries:0.15,gas:0.07,amazon:0.05,other:0.61};
+const WCATS=[["dining","Dining and restaurants"],["groceries","Groceries"],["gas","Gas"],["amazon","Amazon"],["other","Everything else (shopping, bills, subscriptions)"]];
+const W={tab:"type",per:"month",v:{dining:"",groceries:"",gas:"",amazon:"",other:""},trip:{trips:"",flight:"",nights:"",rate:"",rides:""},total:"",up:null,sign:"auto",months:""};
+const wnum=x=>{const n=parseFloat(String(x).replace(/[$,\s]/g,""));return isFinite(n)?n:0;};
+const toYear=v=>W.per==="month"?wnum(v)*12:wnum(v);
+const fromYear=y=>Math.round(W.per==="month"?y/12:y);
+function openWizard(){
+  const sp=S.spend,t=S.trips;
+  const blank=SHARE&&!S.onboarded;
+  for(const [k] of WCATS) W.v[k]=blank?"":fromYear(sp[k]||0);
+  W.trip=blank?{trips:"",flight:"",nights:"",rate:"",rides:""}:{trips:t.visits||"",flight:Math.round(t.flights_per_visit||0)||"",nights:t.hotel_nights||"",rate:t.hotel_rate||"",rides:Math.round(t.uber_per_visit||0)||""};
+  W.total=""; W.up=null;
+  W.tab="type"; $("wiz").hidden=false; renderWizard();
+}
+function closeWizard(){ $("wiz").hidden=true; }
+function wizTotals(){
+  const ev=WCATS.reduce((s,[k])=>s+toYear(W.v[k]),0);
+  const tr=wnum(W.trip.trips), trip=tr*(wnum(W.trip.flight)+wnum(W.trip.nights)*wnum(W.trip.rate)+wnum(W.trip.rides));
+  return {ev,trip,year:ev+trip,month:(ev+trip)/12};
+}
+function renderWizard(){
+  const T=wizTotals(), unit=W.per==="month"?"a month":"a year";
+  const fld=(k,l)=>`<label class="field">${esc(l)} <small style="color:var(--muted)">${unit}</small><input type="number" inputmode="decimal" min="0" step="any" data-wv="${k}" value="${W.v[k]}" placeholder="0"></label>`;
+  const type=`
+    <p class="d" style="margin:0 0 10px;color:var(--muted)">Pick whether you think in months or years, then fill in what you spend. Leave a box empty for $0. Only card-friendly spending counts: skip rent, loans and transfers.</p>
+    <div class="seg" style="grid-template-columns:1fr 1fr;max-width:320px;margin-bottom:12px" role="group" aria-label="Enter by"><button data-wper="month" aria-pressed="${W.per==="month"}">Per month</button><button data-wper="year" aria-pressed="${W.per==="year"}">Per year</button></div>
+    <div class="cform" style="margin-bottom:6px">
+      <label class="field wide">About how much do you spend ${unit} in total on everyday things? <small style="color:var(--muted)">(optional shortcut)</small>
+        <span style="display:flex;gap:8px"><input type="number" inputmode="decimal" min="0" step="any" id="wtotal" value="${W.total}" placeholder="e.g. 2500" style="flex:1"><button class="btn" id="wsplit">Split it for me</button></span></label>
+      <p class="d wide" style="margin:0;color:var(--muted);font-size:12.5px">The split uses a typical US spending mix (dining 12%, groceries 15%, gas 7%, Amazon 5%, everything else 61%). Change any number after.</p>
+      ${WCATS.map(([k,l])=>fld(k,l)).join("")}
+    </div>
+    <h3 style="margin:16px 0 6px">Travel</h3>
+    <p class="d" style="margin:0 0 8px;color:var(--muted);font-size:13px">Round trips you take in a year, and what one trip costs. Leave at 0 if you rarely travel.</p>
+    <div class="cform">
+      <label class="field">Round trips a year<input type="number" min="0" step="1" data-wt="trips" value="${W.trip.trips}" placeholder="0"></label>
+      <label class="field">Flights per round trip $<input type="number" min="0" data-wt="flight" value="${W.trip.flight}" placeholder="0"></label>
+      <label class="field">Hotel nights per trip<input type="number" min="0" data-wt="nights" value="${W.trip.nights}" placeholder="0"></label>
+      <label class="field">Hotel $ per night<input type="number" min="0" data-wt="rate" value="${W.trip.rate}" placeholder="0"></label>
+      <label class="field wide">Uber, taxis and rides per trip $<input type="number" min="0" data-wt="rides" value="${W.trip.rides}" placeholder="0"></label>
+    </div>`;
+  const U=W.up;
+  const upload=`
+    <p class="d" style="margin:0 0 10px;color:var(--muted)">Drop in CSV exports from your bank, credit card, Rocket Money, Mint or similar. The file is read in this browser and never uploaded. Only the category totals are kept. Payments, transfers and deposits are skipped.</p>
+    <label class="btn primary" style="display:inline-block;cursor:pointer">Choose CSV file(s)<input type="file" id="wfile" accept=".csv,text/csv" multiple style="display:none"></label>
+    ${U?`<div style="margin-top:14px">
+      <p style="margin:0 0 6px"><b>${U.used.toLocaleString()}</b> purchases found in ${U.files.length} file${U.files.length>1?"s":""}, ${esc(U.range)} (${U.months.toFixed(1)} months).</p>
+      <div class="cform" style="margin:6px 0 10px">
+        <label class="field">In my file, spending shows as<select id="wsign"><option value="auto" ${W.sign==="auto"?"selected":""}>Auto-detect (${U.autoSign==="neg"?"negative numbers":"positive numbers"})</option><option value="neg" ${W.sign==="neg"?"selected":""}>Negative numbers</option><option value="pos" ${W.sign==="pos"?"selected":""}>Positive numbers</option></select></label>
+        <label class="field">Months the file(s) cover<input type="number" min="0.5" step="0.5" id="wmonths" value="${W.months||U.months.toFixed(1)}"></label>
+      </div>
+      <div class="kv" style="margin-bottom:10px">${U.rows.map(r=>`<div><span>${esc(r.l)}</span><span class="num">${usd(r.year)} a year · ${usd(r.year/12)} a month</span></div>`).join("")}
+        <div><b>Total</b><span class="num"><b>${usd(U.totalYear)} a year · ${usd(U.totalYear/12)} a month</b></span></div></div>
+      ${U.top.length?`<p class="d" style="margin:0 0 10px;color:var(--muted);font-size:12.5px">Biggest merchants left in "everything else": ${U.top.map(t=>esc(t[0])+" "+usd(t[1])).join(", ")}</p>`:""}
+      <button class="btn primary" id="wuse">Use these numbers</button> <button class="btn" id="wedit">Edit them first</button>
+    </div>`:""}
+    <p class="d" style="margin:14px 0 0;color:var(--muted);font-size:12.5px">Tip: use a full year if you can. If a file covers only a few months, totals are scaled up to 12 months. Don't upload a card and the bank account that pays it on top of each other: payments are skipped, but a purchase can show in both.</p>`;
+  $("wiz").innerHTML=`<div class="wbox"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px"><h2 id="wiztitle" style="margin:0">What do you spend?</h2><button class="btn" id="wclose">Close</button></div>
+    <div class="seg" style="grid-template-columns:1fr 1fr;max-width:380px;margin-bottom:14px" role="group" aria-label="How to enter"><button data-wtab="type" aria-pressed="${W.tab==="type"}">Type it in</button><button data-wtab="upload" aria-pressed="${W.tab==="upload"}">Upload transactions</button></div>
+    ${W.tab==="type"?type:upload}
+    ${W.tab==="type"?`<div class="ctl" style="margin-top:14px"><label><span>Your total</span><output>${usd(T.month)} a month · ${usd(T.year)} a year</output></label><p>Everyday ${usd(T.ev)} a year plus travel ${usd(T.trip)} a year. Saved in this browser only.</p></div>
+    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" id="wapply">Use these numbers</button><button class="btn" id="wclose2">Cancel</button></div>`:""}
+  </div>`;
+}
+function applyWizard(){
+  for(const [k] of WCATS) S.spend[k]=Math.round(toYear(W.v[k]));
+  S.spend.parents=0; S.spend.paypal=0;
+  const tr=wnum(W.trip.trips);
+  S.trips.visits=tr; S.trips.flights_per_visit=wnum(W.trip.flight); S.trips.hotel_nights=wnum(W.trip.nights); S.trips.hotel_rate=wnum(W.trip.rate); S.trips.uber_per_visit=wnum(W.trip.rides);
+  S.scale=1; S.onboarded=true; save();
+  if($("scale")){ $("scale").value=100; updateControls(); }
+  buildPanelKeepOpen(); closeWizard(); render();
+}
+/* --- CSV reading --- */
+function parseCSV(t){
+  const rows=[];let row=[],cur="",q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){ if(ch==='"'){ if(t[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else if(ch==='"') q=true; else if(ch===',') {row.push(cur);cur="";}
+    else if(ch==="\n"||ch==="\r"){ if(ch==="\r"&&t[i+1]==="\n") i++; row.push(cur); rows.push(row); row=[]; cur=""; }
+    else cur+=ch; }
+  if(cur.length||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.some(c=>c.trim()!==""));
+}
+function parseDate(s){
+  s=String(s||"").trim().replace(/ .*$/,"").replace(/T.*$/,"");
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(m){ let y=+m[3]; if(y<100) y+=2000; return new Date(y,+m[1]-1,+m[2]); }
+  const d=new Date(String(s)); return isNaN(d)?null:d;
+}
+function parseAmt(s){ if(s==null) return NaN; let t=String(s).trim(); if(!t) return NaN; const neg=/^\(.*\)$/.test(t)||/^[-−]/.test(t)||/-\s*\$/.test(t); t=t.replace(/[^0-9.]/g,""); const n=parseFloat(t); return isNaN(n)?NaN:(neg?-n:n); }
+const EXC_DESC=/\b(atm|withdrawal|deposited item|cash advance|overdraft|check #|payment|autopay|auto-pay|thank you|payroll|direct dep|deposit|transfer|xfer|zelle|venmo|cash app|apple cash|wire|interest|dividend|statement credit|reversal|round up|savings|brokerage|wealthfront|robinhood|coinbase|mortgage|loan|pmt)\b/i;
+const EXC_CAT=/payment|transfer|income|investment|savings|credit card|deposit|paycheck|refund|loan|tax|interest|cash & checks|reimburse/i;
+const RX={
+ flights:/\b(delta air|american air|southwest|united air|spirit air|frontier|jetblue|alaska air|airlines?|airways|aa\.com|expedia.*flight)\b/i,
+ hotels:/\b(hotel|marriott|hilton|hyatt|airbnb|vrbo|motel|resort|holiday inn|hampton inn|courtyard|ihg|best western|sheraton|westin|embassy suites|booking\.com|lodging)\b/i,
+ rideshare:/\b(uber(?! ?eats)|lyft|taxi|cab\b)\b/i,
+ amazon:/\b(amazon|amzn)\b/i,
+ groceries:/\b(kroger|safeway|albertsons|publix|h-?e-?b\b|aldi|trader joe|whole foods|wegmans|food lion|giant|stop & shop|meijer|sprouts|winn-?dixie|tom thumb|central market|fred meyer|ralphs|vons|harris teeter|grocery|supermarket|market basket|shoprite|piggly)\b/i,
+ gas:/\b(shell|exxon|mobil|chevron|bp\b|sunoco|valero|marathon|citgo|texaco|speedway|quiktrip|qt \d|racetrac|wawa|sheetz|buc-?ee|7-?eleven|circle k|murphy|casey|pilot|love'?s|conoco|phillips 66|gas station|fuel)\b/i,
+ dining:/\b(restaurant|cafe|caf[eé]|coffee|pizza|grill|bbq|sushi|taco|burger|bakery|diner|kitchen|pub\b|bar &|doordash|grubhub|uber ?eats|postmates|starbucks|mcdonald|chipotle|wendy|subway|chick-?fil|panera|dunkin|domino|papa john|kfc|popeyes|five guys|in-?n-?out|whataburger|wingstop|cane'?s|sonic|jack in the box|panda express|olive garden|applebee|chili'?s|ihop|denny|shake shack|taqueria|steakhouse|bistro|tst\*|brewing|donut|ice cream|dairy queen|little caesars|raising cane)\b/i
+};
+function classify(text,bank){
+  if(EXC_DESC.test(text)) return null;
+  if(bank&&EXC_CAT.test(bank)) return null;
+  for(const k of ["flights","hotels","rideshare","amazon","groceries","gas","dining"]) if(RX[k].test(text)) return k;
+  if(bank){ if(/dining|restaurant|food & drink|fast food|coffee/i.test(bank)) return "dining"; if(/grocer|supermarket/i.test(bank)) return "groceries"; if(/\bgas\b|fuel/i.test(bank)) return "gas"; if(/airfare|airline|flight/i.test(bank)) return "flights"; if(/hotel|lodging/i.test(bank)) return "hotels"; if(/rideshare|taxi/i.test(bank)) return "rideshare"; }
+  return "other";
+}
+function tidy(s){ return String(s||"").replace(/\s+/g," ").replace(/\b(PURCHASE|RECURRING PAYMENT|PAYPAL PURCHASE|PAYPAL RETRY PYMT|POS DEBIT|DEBIT CARD PURCHASE)\b(\s+AUTHORIZED ON\s+\d+\/\d+)?(\s+\d{6})?/i,"").replace(/\s+S\d{10,}.*$/,"").replace(/\s+CARD \d{4}$/i,"").replace(/\b\d{2}\/\d{2}\b/g,"").trim(); }
+function readTable(rows){
+  const H=/^(transaction date|posted date|post date|trans\.? date|date)$/i;
+  let hi=-1; for(let i=0;i<Math.min(rows.length,8);i++){ const c=rows[i].map(x=>x.trim().toLowerCase()); if(c.some(x=>H.test(x))&&c.some(x=>/^(amount|debit|credit|description|name|merchant|payee)/.test(x))){hi=i;break;} }
+  const out=[];
+  if(hi>=0){
+    const head=rows[hi].map(x=>x.trim().toLowerCase());
+    const find=(...rxs)=>{ for(const r of rxs){ const i=head.findIndex(x=>r.test(x)); if(i>=0) return i; } return -1; };
+    const di=find(/^transaction date$/,/^posted date$/,/^post date$/,/^date$/,/date/), ai=find(/^amount$/,/^amount \(/), de=find(/^debit$/), cr=find(/^credit$/);
+    const ni=find(/^name$/,/^merchant$/,/^payee$/,/^description$/,/^original description$/,/^memo$/,/^details$/), xi=find(/^description$/,/^original description$/,/^memo$/,/^notes?$/), ci=find(/^category$/), ti=find(/^type$/);
+    const dc=(ai<0)&&(de>=0||cr>=0);
+    for(const r of rows.slice(hi+1)){
+      const d=parseDate(r[di]); if(!d) continue;
+      let a; if(dc){ const dv=parseAmt(r[de]), cv=parseAmt(r[cr]); a=(isNaN(dv)?0:-Math.abs(dv))+(isNaN(cv)?0:Math.abs(cv)); } else a=parseAmt(r[ai]);
+      if(isNaN(a)||a===0) continue;
+      const text=[r[ni],ni!==xi?r[xi]:"",ti>=0&&/payment|transfer/i.test(r[ti]||"")?"payment":""].filter(Boolean).join(" ").replace(/\s+/g," ");
+      out.push({d,a,text,label:tidy(text),cat:ci>=0?(r[ci]||""):"",dc});
+    }
+  } else { // no header, e.g. Wells Fargo: date, amount, *, blank, description
+    for(const r of rows){ const d=parseDate(r[0]), a=parseAmt(r[1]); if(!d||isNaN(a)||a===0) continue; const text=(r.slice(2).sort((x,y)=>y.length-x.length)[0]||"").replace(/\s+/g," ").replace(/\b(PURCHASE|RECURRING PAYMENT)\s+AUTHORIZED ON \d+\/\d+\b/i,"").trim(); out.push({d,a,text,label:tidy(text),cat:"",dc:false}); }
+  }
+  return out;
+}
+function summarize(){
+  const U=W.up; if(!U) return;
+  const sign=W.sign==="auto"?U.autoSign:W.sign;
+  const tot={dining:0,groceries:0,gas:0,amazon:0,other:0,flights:0,hotels:0,rideshare:0}, cnt={flights:0}, oth={};
+  let used=0,min=null,max=null;
+  for(const r of U.raw){
+    const k=classify(r.text,r.cat); if(!k) continue;
+    const sp=sign==="neg"?-r.a:r.a; if(sp<=0) continue;
+    tot[k]+=sp; used++; if(k==="flights") cnt.flights++;
+    if(k==="other"){ const m=(r.label||r.text).split(" ").slice(0,3).join(" ").toUpperCase().slice(0,26); oth[m]=(oth[m]||0)+sp; }
+    if(!min||r.d<min) min=r.d; if(!max||r.d>max) max=r.d;
+  }
+  const dates=U.raw.map(r=>r.d.getTime()); const lo=new Date(Math.min(...dates)), hi=new Date(Math.max(...dates));
+  const months=Math.max(0.5,((hi-lo)/86400000+1)/30.44);
+  const mo=wnum(W.months)||months, f=12/mo;
+  const labels={dining:"Dining and restaurants",groceries:"Groceries",gas:"Gas",amazon:"Amazon",other:"Everything else",flights:"Flights",hotels:"Hotels",rideshare:"Uber, taxis and rides"};
+  U.used=used; U.months=months; U.range=lo.toLocaleDateString()+" to "+hi.toLocaleDateString();
+  U.rows=Object.keys(labels).map(k=>({k,l:labels[k],year:tot[k]*f})); U.totalYear=U.rows.reduce((s,r)=>s+r.year,0);
+  U.flightCount=cnt.flights*f; U.top=Object.entries(oth).sort((a,b)=>b[1]-a[1]).slice(0,6);
+}
+async function loadFiles(files){
+  const raw=[],names=[]; let dcAll=true;
+  for(const f of files){ const t=await f.text(); const rows=readTable(parseCSV(t)); if(!rows.length) continue; names.push(f.name); for(const r of rows){ raw.push(r); if(!r.dc) dcAll=false; } }
+  if(!raw.length){ W.up=null; renderWizard(); alert("I couldn't find dates and amounts in that file. It needs a date column and an amount (or debit and credit) column."); return; }
+  let neg=0,pos=0; for(const r of raw){ if(!classify(r.text,r.cat)) continue; r.a<0?neg++:pos++; }
+  W.up={raw,files:names,autoSign:dcAll||neg>pos?"neg":"pos"}; W.sign="auto"; W.months=""; summarize(); renderWizard();
+}
+function useUpload(editFirst){
+  const U=W.up; if(!U) return;
+  const y=Object.fromEntries(U.rows.map(r=>[r.k,r.year]));
+  const trips=Math.max(1,Math.round(U.flightCount/2));
+  for(const [k] of WCATS) W.v[k]=fromYear(y[k]);
+  const hasTravel=(y.flights+y.hotels+y.rideshare)>0;
+  if(hasTravel) W.trip={trips,flight:Math.round(y.flights/trips),nights:y.hotels>0?1:0,rate:Math.round(y.hotels/trips),rides:Math.round(y.rideshare/trips)};
+  if(editFirst){ W.tab="type"; renderWizard(); } else applyWizard();
+}
+function wizEvents(){
+  const w=$("wiz");
+  w.addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    if(b.id==="wclose"||b.id==="wclose2"){ S.onboarded=true; save(); closeWizard(); return; }
+    if(b.dataset.wtab){ W.tab=b.dataset.wtab; renderWizard(); return; }
+    if(b.dataset.wper){ const old=W.per; for(const [k] of WCATS) W.v[k]=W.v[k]===""?"":Math.round(toYear(W.v[k])/(b.dataset.wper==="month"?12:1)); W.total=W.total===""?"":Math.round(wnum(W.total)*(old==="month"?12:1)/(b.dataset.wper==="month"?12:1)); W.per=b.dataset.wper; renderWizard(); return; }
+    if(b.id==="wsplit"){ const t=wnum($("wtotal").value); if(t>0){ W.total=t; for(const [k] of WCATS) W.v[k]=Math.round(t*TYPICAL[k]); renderWizard(); } return; }
+    if(b.id==="wapply"){ applyWizard(); return; }
+    if(b.id==="wuse"){ useUpload(false); return; }
+    if(b.id==="wedit"){ useUpload(true); return; }
+  });
+  w.addEventListener("input",e=>{ const t=e.target;
+    if(t.dataset.wv){ W.v[t.dataset.wv]=t.value; const T=wizTotals(); const o=w.querySelector(".ctl output"); if(o) o.textContent=usd(T.month)+" a month · "+usd(T.year)+" a year"; }
+    else if(t.dataset.wt){ W.trip[t.dataset.wt]=t.value; const T=wizTotals(); const o=w.querySelector(".ctl output"); if(o) o.textContent=usd(T.month)+" a month · "+usd(T.year)+" a year"; }
+    else if(t.id==="wtotal") W.total=t.value;
+    else if(t.id==="wmonths"){ W.months=t.value; summarize(); renderWizardKeepFocus("wmonths"); }
+  });
+  w.addEventListener("change",e=>{ const t=e.target;
+    if(t.id==="wfile") loadFiles([...t.files]);
+    else if(t.id==="wsign"){ W.sign=t.value; summarize(); renderWizard(); }
+  });
+  w.addEventListener("click",e=>{ if(e.target===w){ S.onboarded=true; save(); closeWizard(); } });
+}
+function renderWizardKeepFocus(id){ const el=$(id), v=el&&el.value, pos=el&&el.selectionStart; renderWizard(); const n=$(id); if(n){ n.focus(); try{n.setSelectionRange(pos,pos);}catch(e){} } }
+
 /* ---------- controls strip ---------- */
 function buildControls(){
   $("controls").innerHTML=`
@@ -794,6 +994,7 @@ document.addEventListener("click",e=>{
       perks_list:g("cc-cr")?[{label:"Credits",amount:g("cc-cr"),type:"custom",note:""}]:[],bonus_cash:g("cc-b"),bonus_note:g("cc-b")?"Sign-up bonus you entered":"",
       avail:{tier:"open",note:"A card you added."}});
     save(); buildPanelKeepOpen(); render(); return; }
+  if(b.id==="spendbtn"){ openWizard(); return; }
   if(b.id==="panelbtn"){ document.body.classList.toggle("panel-open"); return; }
   if(b.id==="panelx"){ document.body.classList.remove("panel-open"); return; }
   if(b.dataset.mode){ S.mode=b.dataset.mode; save(); buildPanelKeepOpen(); render(); return; }
@@ -810,7 +1011,7 @@ document.addEventListener("click",e=>{
   if(b.id==="theme"){ const r=document.documentElement; const dark=(r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches); r.dataset.theme=dark?"light":"dark"; try{localStorage.setItem("cardvalue.theme",r.dataset.theme)}catch(e){} }
 });
 $("cmp").addEventListener("click",e=>{ if(e.target===$("cmp")) $("cmp").hidden=true; });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ $("cmp").hidden=true; document.body.classList.remove("panel-open"); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(!$("wiz").hidden){ S.onboarded=true; save(); closeWizard(); } $("cmp").hidden=true; document.body.classList.remove("panel-open"); } });
 function buildPanelKeepOpen(){
   const open=[...document.querySelectorAll("#panel details")].map(d=>d.open);
   buildPanel();
@@ -818,7 +1019,8 @@ function buildPanelKeepOpen(){
 }
 try{ const th=localStorage.getItem("cardvalue.theme"); if(th) document.documentElement.dataset.theme=th; }catch(e){}
 if(SHARE){ $("subline").textContent="Compare "+D.cards.length+" credit cards on what they are worth to you. Set what a point, a credit and a perk is worth, how much you spend and the fees you will pay. Everything runs in your browser and nothing is sent anywhere."; }
-buildControls(); buildPanel(); render();
+buildControls(); buildPanel(); render(); wizEvents();
+if(SHARE && !S.onboarded) openWizard();
 </script>
 </body>
 </html>
