@@ -552,6 +552,7 @@ function renderWizard(){
     </div>`;
   const U=W.up;
   const upload=`
+    ${window.PRIVATE_MODE?`<div class="ctl" style="margin:0 0 12px;border-color:var(--accent)"><label><span>Private copy</span><output>Cannot send data anywhere</output></label><p>Your browser is blocking this page from connecting to the internet at all, even when you are online. Your bank file is read here and goes nowhere.</p></div>`:(SHARE?`<div class="ctl" style="margin:0 0 12px"><label><span>Uploading bank files?</span></label><p>For the strongest privacy, <a href="card-value-private.html" download>download the private copy</a> (one file). It works with no internet, and your browser blocks it from sending anything even when you are online. It shows drawn cards instead of photos.</p></div>`:"")}
     <p class="d" style="margin:0 0 10px;color:var(--muted)">Drop in CSV exports from your bank, credit card, Rocket Money, Mint or similar. The file is read in this browser and never uploaded. Only the category totals are kept. Payments, transfers and deposits are skipped.</p>
     <label class="btn primary" style="display:inline-block;cursor:pointer">Choose CSV file(s)<input type="file" id="wfile" accept=".csv,text/csv" multiple style="display:none"></label>
     ${U?`<div style="margin-top:14px">

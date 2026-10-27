@@ -21,3 +21,9 @@ This is not financial advice, it uses no affiliate links, and it is not affiliat
 ## Accounts (optional)
 
 Sign-in with email and password, saved numbers that follow you across devices, and 2-step codes can be switched on with a free Supabase project. Your saved numbers are encrypted in the browser before they leave it. See [AUTH_SETUP.md](AUTH_SETUP.md). Until that is set up, the Sign in button stays hidden and everything stays in your browser.
+
+## Private copy for bank files
+
+[card-value-private.html](https://natehcmd.github.io/card-value/card-value-private.html) is the whole site in one file. Download it, open it from your computer, and upload your bank CSV. It works with no internet, and the browser itself is told to block every network connection from the page (`connect-src 'none'`), so it cannot send your data anywhere even while you are online. Its scripts are pinned by hash, so only the code in the file can run. It shows drawn cards instead of the issuers' photos, and card data is as of the build date, so download a fresh copy now and then.
+
+To check your download is the real file, run `shasum -a 256 card-value-private.html` and compare it with `card-value-private.html.sha256`.
