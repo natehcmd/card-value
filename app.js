@@ -523,7 +523,7 @@ function openWizard(){
   W.total=""; W.up=null;
   W.tab="type"; $("wiz").hidden=false; renderWizard();
 }
-function closeWizard(){ $("wiz").hidden=true; }
+function closeWizard(){ W.up=null; W.sign="auto"; W.months=""; const f=$("wfile"); if(f) f.value=""; $("wiz").hidden=true; $("wiz").innerHTML=""; }
 function wizTotals(){
   const ev=WCATS.reduce((s,[k])=>s+toYear(W.v[k]),0);
   const tr=wnum(W.trip.trips), trip=tr*(wnum(W.trip.flight)+wnum(W.trip.nights)*wnum(W.trip.rate)+wnum(W.trip.rides));
@@ -675,6 +675,7 @@ function useUpload(editFirst){
   for(const [k] of WCATS) W.v[k]=fromYear(y[k]);
   const hasTravel=(y.flights+y.hotels+y.rideshare)>0;
   if(hasTravel) W.trip={trips,flight:Math.round(y.flights/trips),nights:y.hotels>0?1:0,rate:Math.round(y.hotels/trips),rides:Math.round(y.rideshare/trips)};
+  W.up=null;   // the raw rows are no longer needed: only the category totals are kept
   if(editFirst){ W.tab="type"; renderWizard(); } else applyWizard();
 }
 function wizEvents(){
